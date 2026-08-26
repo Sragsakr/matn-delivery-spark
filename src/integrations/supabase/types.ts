@@ -2770,6 +2770,347 @@ export type Database = {
           },
         ]
       }
+      intel_copilot_answers: {
+        Row: {
+          answer: string
+          asked_by_user_id: string | null
+          citations: Json
+          created_at: string
+          id: string
+          locale: string
+          model_name: string
+          origin: Database["public"]["Enums"]["content_origin"]
+          project_id: string | null
+          question: string
+          team_iteration_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          answer: string
+          asked_by_user_id?: string | null
+          citations?: Json
+          created_at?: string
+          id?: string
+          locale?: string
+          model_name: string
+          origin?: Database["public"]["Enums"]["content_origin"]
+          project_id?: string | null
+          question: string
+          team_iteration_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          answer?: string
+          asked_by_user_id?: string | null
+          citations?: Json
+          created_at?: string
+          id?: string
+          locale?: string
+          model_name?: string
+          origin?: Database["public"]["Enums"]["content_origin"]
+          project_id?: string | null
+          question?: string
+          team_iteration_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intel_copilot_answers_project_fk"
+            columns: ["tenant_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "core_projects"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "intel_copilot_answers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "core_tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intel_copilot_answers_user_fk"
+            columns: ["tenant_id", "asked_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "core_users"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      intel_recommendation_decisions: {
+        Row: {
+          created_at: string
+          decided_at: string
+          decided_by_user_id: string | null
+          decision: Database["public"]["Enums"]["recommendation_status"]
+          id: string
+          rationale: string | null
+          recommendation_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string
+          decided_by_user_id?: string | null
+          decision: Database["public"]["Enums"]["recommendation_status"]
+          id?: string
+          rationale?: string | null
+          recommendation_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string
+          decided_by_user_id?: string | null
+          decision?: Database["public"]["Enums"]["recommendation_status"]
+          id?: string
+          rationale?: string | null
+          recommendation_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intel_recommendation_decisions_rec_fk"
+            columns: ["tenant_id", "recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "intel_recommendations"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "intel_recommendation_decisions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "core_tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intel_recommendation_decisions_user_fk"
+            columns: ["tenant_id", "decided_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "core_users"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      intel_recommendations: {
+        Row: {
+          body_ar: string | null
+          body_en: string | null
+          created_at: string
+          effort: string | null
+          evidence_refs: Json
+          expected_impact: string | null
+          id: string
+          model_name: string | null
+          origin: Database["public"]["Enums"]["content_origin"]
+          priority: number
+          project_id: string | null
+          risk_signal_id: string | null
+          rule_id: string | null
+          status: Database["public"]["Enums"]["recommendation_status"]
+          team_id: string | null
+          team_iteration_id: string | null
+          tenant_id: string
+          title_ar: string
+          title_en: string
+          updated_at: string
+          valid_until: string | null
+        }
+        Insert: {
+          body_ar?: string | null
+          body_en?: string | null
+          created_at?: string
+          effort?: string | null
+          evidence_refs?: Json
+          expected_impact?: string | null
+          id?: string
+          model_name?: string | null
+          origin?: Database["public"]["Enums"]["content_origin"]
+          priority?: number
+          project_id?: string | null
+          risk_signal_id?: string | null
+          rule_id?: string | null
+          status?: Database["public"]["Enums"]["recommendation_status"]
+          team_id?: string | null
+          team_iteration_id?: string | null
+          tenant_id: string
+          title_ar: string
+          title_en: string
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Update: {
+          body_ar?: string | null
+          body_en?: string | null
+          created_at?: string
+          effort?: string | null
+          evidence_refs?: Json
+          expected_impact?: string | null
+          id?: string
+          model_name?: string | null
+          origin?: Database["public"]["Enums"]["content_origin"]
+          priority?: number
+          project_id?: string | null
+          risk_signal_id?: string | null
+          rule_id?: string | null
+          status?: Database["public"]["Enums"]["recommendation_status"]
+          team_id?: string | null
+          team_iteration_id?: string | null
+          tenant_id?: string
+          title_ar?: string
+          title_en?: string
+          updated_at?: string
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intel_recommendations_project_fk"
+            columns: ["tenant_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "core_projects"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "intel_recommendations_signal_fk"
+            columns: ["tenant_id", "risk_signal_id"]
+            isOneToOne: false
+            referencedRelation: "intel_risk_signals"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "intel_recommendations_team_fk"
+            columns: ["tenant_id", "project_id", "team_id"]
+            isOneToOne: false
+            referencedRelation: "core_teams"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+          {
+            foreignKeyName: "intel_recommendations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "core_tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intel_recommendations_ti_fk"
+            columns: ["tenant_id", "project_id", "team_iteration_id"]
+            isOneToOne: false
+            referencedRelation: "core_team_iterations"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+        ]
+      }
+      intel_risk_signals: {
+        Row: {
+          created_at: string
+          detail_ar: string | null
+          detail_en: string | null
+          evidence: Json
+          first_detected_at: string
+          id: string
+          last_detected_at: string
+          origin: Database["public"]["Enums"]["content_origin"]
+          project_id: string | null
+          resolved_at: string | null
+          rule_id: string
+          rule_version: number
+          scope_hash: string | null
+          severity: Database["public"]["Enums"]["severity_level"]
+          status: Database["public"]["Enums"]["risk_status"]
+          team_id: string | null
+          team_iteration_id: string | null
+          tenant_id: string
+          title_ar: string
+          title_en: string
+          updated_at: string
+          work_item_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          detail_ar?: string | null
+          detail_en?: string | null
+          evidence?: Json
+          first_detected_at?: string
+          id?: string
+          last_detected_at?: string
+          origin?: Database["public"]["Enums"]["content_origin"]
+          project_id?: string | null
+          resolved_at?: string | null
+          rule_id: string
+          rule_version?: number
+          scope_hash?: string | null
+          severity?: Database["public"]["Enums"]["severity_level"]
+          status?: Database["public"]["Enums"]["risk_status"]
+          team_id?: string | null
+          team_iteration_id?: string | null
+          tenant_id: string
+          title_ar: string
+          title_en: string
+          updated_at?: string
+          work_item_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          detail_ar?: string | null
+          detail_en?: string | null
+          evidence?: Json
+          first_detected_at?: string
+          id?: string
+          last_detected_at?: string
+          origin?: Database["public"]["Enums"]["content_origin"]
+          project_id?: string | null
+          resolved_at?: string | null
+          rule_id?: string
+          rule_version?: number
+          scope_hash?: string | null
+          severity?: Database["public"]["Enums"]["severity_level"]
+          status?: Database["public"]["Enums"]["risk_status"]
+          team_id?: string | null
+          team_iteration_id?: string | null
+          tenant_id?: string
+          title_ar?: string
+          title_en?: string
+          updated_at?: string
+          work_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intel_risk_signals_project_fk"
+            columns: ["tenant_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "core_projects"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "intel_risk_signals_team_fk"
+            columns: ["tenant_id", "project_id", "team_id"]
+            isOneToOne: false
+            referencedRelation: "core_teams"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+          {
+            foreignKeyName: "intel_risk_signals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "core_tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intel_risk_signals_ti_fk"
+            columns: ["tenant_id", "project_id", "team_iteration_id"]
+            isOneToOne: false
+            referencedRelation: "core_team_iterations"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+          {
+            foreignKeyName: "intel_risk_signals_work_item_fk"
+            columns: ["tenant_id", "work_item_id"]
+            isOneToOne: false
+            referencedRelation: "az_work_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
