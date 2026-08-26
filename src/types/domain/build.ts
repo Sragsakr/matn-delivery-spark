@@ -1,4 +1,4 @@
-import type { IsoTimestamp, RecordMeta, TenantScoped, Uuid } from "./common";
+import type { IsoTimestamp, RecordMeta, SourceTracked, TenantScoped, Uuid } from "./common";
 
 export type BuildStatus = "notStarted" | "inProgress" | "completed" | "cancelling" | "postponed" | "unknown";
 export type BuildResult = "succeeded" | "partiallySucceeded" | "failed" | "canceled" | "none";
@@ -12,7 +12,7 @@ export interface BuildStage {
 }
 
 /** A single pipeline run. */
-export interface Build extends TenantScoped, RecordMeta {
+export interface Build extends TenantScoped, RecordMeta, SourceTracked {
   readonly id: Uuid;
   readonly organizationId: Uuid;
   readonly projectId: Uuid;

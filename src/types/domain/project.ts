@@ -1,4 +1,4 @@
-import type { CustomFields, JsonValue, Localized, RecordMeta, TenantScoped, Uuid } from "./common";
+import type { CustomFields, JsonValue, Localized, RecordMeta, SourceTracked, TenantScoped, Uuid } from "./common";
 
 /** Azure process template family; custom inherited processes map onto a base. */
 export type ProcessTemplateKind = "agile" | "scrum" | "cmmi" | "basic" | "custom";
@@ -34,7 +34,7 @@ export interface ProcessMapping {
 }
 
 /** Azure DevOps team project. Current-state record. */
-export interface Project extends TenantScoped, RecordMeta {
+export interface Project extends TenantScoped, RecordMeta, SourceTracked {
   readonly id: Uuid;
   readonly organizationId: Uuid;
   /** Azure project GUID — required and unique within an organization. */

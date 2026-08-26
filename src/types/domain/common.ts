@@ -88,3 +88,49 @@ export interface CalculationStamp {
 /** Health language shared with the approved Phase 1 UI. */
 export type HealthStatus = "healthy" | "atRisk" | "critical" | "neutral" | "watch";
 export type Severity = "critical" | "high" | "medium" | "watch";
+
+/* ------------------------------------------------------------------ */
+/* Source lifecycle (Phase 2.1)                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Lifecycle of a record relative to its Azure DevOps source.
+ * "deleted" and "inaccessible" are never conflated: a 404 (after a second
+ * verification) means deleted, a 403 means access was revoked.
+ */
+export type SourceStatus = "active" | "deleted" | "inaccessible" | "unknown";
+
+/** Applied to every entity that mirrors an Azure DevOps object. */
+export interface SourceTracked {
+  readonly sourceStatus: SourceStatus;
+  /** Convenience flag: true only when sourceStatus === "deleted". */
+  readonly isDeleted: boolean;
+  /** When the object was confirmed missing at the source (after verification). */
+  readonly deletedAtSource: IsoTimestamp | null;
+  /** Last sync in which the object was observed as present and readable. */
+  readonly lastSeenAt: IsoTimestamp | null;
+  /** When reads started failing with 403 / scope loss. */
+  readonly accessRevokedAt: IsoTimestamp | null;
+}
+
+/** Result of the two-step verification that precedes any tombstone. */
+export interface SourceDisappearanceCheck {
+  readonly firstMissingAt: IsoTimestamp;
+  readonly verifiedAt: IsoTimestamp | null;
+  readonly httpStatus: number | null;
+  readonly conclusion: "deleted" | "inaccessible" | "still_present" | "undetermined";
+  /** Set when the conclusion is "undetermined"; a data-quality issue is raised. */
+  readonly undeterminedReason: string | null;
+}
+
+/** Tenant-configurable retention window, in days; null means indefinite. */
+export interface RetentionRule {
+  readonly key:
+    | "work_item_revisions" | "daily_project_snapshots" | "daily_iteration_snapshots"
+    | "daily_team_snapshots" | "daily_member_snapshots" | "raw_payload_cache"
+    | "sync_run_details" | "audit_events" | "copilot_answers";
+  readonly defaultDays: number | null;
+  readonly configuredDays: number | null;
+  /** Records under legal hold are never removed, whatever the window says. */
+  readonly legalHoldActive: boolean;
+}

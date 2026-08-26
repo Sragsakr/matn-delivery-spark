@@ -1,7 +1,7 @@
-import type { IsoTimestamp, Localized, RecordMeta, TenantScoped, Uuid } from "./common";
+import type { IsoTimestamp, Localized, RecordMeta, SourceTracked, TenantScoped, Uuid } from "./common";
 
 /** Azure DevOps team inside a project. Current-state record. */
-export interface Team extends TenantScoped, RecordMeta {
+export interface Team extends TenantScoped, RecordMeta, SourceTracked {
   readonly id: Uuid;
   readonly organizationId: Uuid;
   readonly projectId: Uuid;
@@ -18,7 +18,7 @@ export interface Team extends TenantScoped, RecordMeta {
 }
 
 /** Membership is history-bearing: a member can join and leave mid-iteration. */
-export interface TeamMembership extends TenantScoped, RecordMeta {
+export interface TeamMembership extends TenantScoped, RecordMeta, SourceTracked {
   readonly id: Uuid;
   readonly teamId: Uuid;
   readonly memberId: Uuid;

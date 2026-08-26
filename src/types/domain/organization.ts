@@ -1,4 +1,4 @@
-import type { CustomFields, IsoTimestamp, Localized, RecordMeta, TenantScoped, Uuid } from "./common";
+import type { CustomFields, IsoTimestamp, Localized, RecordMeta, SourceTracked, TenantScoped, Uuid } from "./common";
 
 /** Top-level customer boundary. One tenant owns many Azure organizations. */
 export interface Tenant extends RecordMeta {
@@ -11,7 +11,7 @@ export interface Tenant extends RecordMeta {
 }
 
 /** Azure DevOps organization (dev.azure.com/{name}). Current-state record. */
-export interface Organization extends TenantScoped, RecordMeta {
+export interface Organization extends TenantScoped, RecordMeta, SourceTracked {
   readonly id: Uuid;
   /** Azure organization GUID when available (accounts API), else null. */
   readonly azureOrganizationId: string | null;

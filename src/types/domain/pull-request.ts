@@ -1,6 +1,6 @@
-import type { IsoTimestamp, RecordMeta, TenantScoped, Uuid } from "./common";
+import type { IsoTimestamp, RecordMeta, SourceTracked, TenantScoped, Uuid } from "./common";
 
-export interface Repository extends TenantScoped, RecordMeta {
+export interface Repository extends TenantScoped, RecordMeta, SourceTracked {
   readonly id: Uuid;
   readonly organizationId: Uuid;
   readonly projectId: Uuid;
@@ -27,7 +27,7 @@ export interface PullRequestReview extends TenantScoped, RecordMeta {
   readonly commentCount: number;
 }
 
-export interface PullRequest extends TenantScoped, RecordMeta {
+export interface PullRequest extends TenantScoped, RecordMeta, SourceTracked {
   readonly id: Uuid;
   readonly organizationId: Uuid;
   readonly projectId: Uuid;

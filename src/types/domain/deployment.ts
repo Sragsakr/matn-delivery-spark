@@ -1,4 +1,4 @@
-import type { IsoTimestamp, RecordMeta, TenantScoped, Uuid } from "./common";
+import type { IsoTimestamp, RecordMeta, SourceTracked, TenantScoped, Uuid } from "./common";
 
 export type DeploymentStatus =
   | "notDeployed" | "inProgress" | "succeeded" | "partiallySucceeded"
@@ -12,7 +12,7 @@ export interface DeploymentApproval {
 }
 
 /** One attempt to deploy one build to one environment. */
-export interface Deployment extends TenantScoped, RecordMeta {
+export interface Deployment extends TenantScoped, RecordMeta, SourceTracked {
   readonly id: Uuid;
   readonly organizationId: Uuid;
   readonly projectId: Uuid;

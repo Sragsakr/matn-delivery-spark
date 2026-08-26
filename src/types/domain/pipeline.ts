@@ -1,7 +1,7 @@
-import type { RecordMeta, TenantScoped, Uuid } from "./common";
+import type { RecordMeta, SourceTracked, TenantScoped, Uuid } from "./common";
 
 /** A pipeline *definition* — distinct from an individual run. */
-export interface Pipeline extends TenantScoped, RecordMeta {
+export interface Pipeline extends TenantScoped, RecordMeta, SourceTracked {
   readonly id: Uuid;
   readonly organizationId: Uuid;
   readonly projectId: Uuid;
@@ -16,7 +16,7 @@ export interface Pipeline extends TenantScoped, RecordMeta {
 }
 
 /** Deployable environment / stage target. */
-export interface Environment extends TenantScoped, RecordMeta {
+export interface Environment extends TenantScoped, RecordMeta, SourceTracked {
   readonly id: Uuid;
   readonly projectId: Uuid;
   readonly azureEnvironmentId: number | null;

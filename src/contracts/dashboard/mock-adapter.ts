@@ -17,7 +17,7 @@ import type {
   Recommendation,
   RiskSignal,
 } from "@/types/domain";
-import type { KpiId } from "@/types/domain/kpi";
+import type { KpiId, ResolvedKpiConfiguration } from "@/types/domain/kpi";
 import type { DashboardContext, PartialDataWarning, Section } from "./shared";
 import type {
   EngineeringHealthContract,
@@ -44,6 +44,23 @@ const KPI_ID_MAP: Record<string, KpiId> = {
 
 function stamp(now: string): CalculationStamp {
   return { calculationVersion: MOCK_CALCULATION_VERSION, calculatedAt: now, origin: "mock" };
+}
+
+/** Mock mode always resolves to the shipped global default configuration. */
+function mockResolvedConfiguration(kpiId: KpiId, now: string): ResolvedKpiConfiguration {
+  return {
+    kpiId,
+    kpiDefinitionId: `mock-def-${kpiId}`,
+    calculationVersion: MOCK_CALCULATION_VERSION,
+    thresholds: { healthy: null, warning: null, critical: null, direction: "higherIsBetter" },
+    weight: null,
+    displayFormat: "0",
+    enabled: true,
+    resolvedFrom: "global_default",
+    overrideId: null,
+    configurationVersion: `mock-config-${kpiId}`,
+    resolvedAt: now,
+  };
 }
 
 function measure(value: number | null): Measure {
@@ -98,6 +115,7 @@ function toKpiValue(kpi: KpiMetric, ctx: DashboardContext, now: string): KpiValu
     projectId: ctx.projectId,
     teamId: ctx.teamId,
     iterationId: ctx.iterationId,
+    teamIterationId: ctx.teamIterationId,
     measure: measure(kpi.value),
     unit: kpi.unit === "percent" ? "percent" : kpi.unit === "count" ? "count" : "ratio",
     status: kpi.status,
@@ -106,6 +124,7 @@ function toKpiValue(kpi: KpiMetric, ctx: DashboardContext, now: string): KpiValu
     drivers: kpi.drivers,
     relatedWorkItemIds: kpi.relatedItems.map((i) => i.id),
     validFrom: now,
+    resolvedConfiguration: mockResolvedConfiguration(KPI_ID_MAP[kpi.id] ?? "scope_completion", now),
     stamp: stamp(now),
   };
 }

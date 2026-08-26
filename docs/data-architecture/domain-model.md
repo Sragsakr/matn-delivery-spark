@@ -28,10 +28,11 @@ Legend — PK: internal UUID unless stated. AzureID: source identifier. Owner: t
 | Organization | `id` | `accountId`/name | tenant | Tenant | Project, SyncConnection | azureOrganizationName | azureOrganizationId, connectedAt | normalized | daily | indefinite |
 | Project | `id` | `azureProjectId` | tenant+org | Organization | Team, WorkItem, Repository, Pipeline | azureProjectId, name, processTemplateKind | description, processMappingId, visibility | normalized | daily | indefinite |
 | Team | `id` | `azureTeamId` | tenant+project | Project | TeamMembership, Iteration binding, capacity | azureTeamId, name | description, defaultIterationPath | normalized | daily | indefinite |
-| Iteration | `id` | `azureIterationId` | tenant+project | Project (node), Team (binding) | WorkItem, snapshots, capacity | azureIterationPath, name, timeZone | startDate, finishDate, teamId | normalized | daily | indefinite |
+| Iteration | `id` | `azureIterationId` | tenant+project | Project | TeamIteration, WorkItem | azureIterationPath, name | startDate, finishDate | normalized | daily | indefinite |
+| TeamIteration | `id` | — | tenant+team | Team, Iteration | snapshots, capacity, calendar | teamId, iterationId, timeZone, workingWeekdays | teamDaysOff, selectedForSync | normalized | daily | indefinite |
 | TeamMember | `id` | `azureDescriptor` | tenant+org | Organization | memberships, capacity, assignments | displayName, azureDescriptor | email, uniqueName, avatarUrl, role | normalized | daily | indefinite |
 | TeamMembership | `id` | — | tenant+team | Team, TeamMember | — | teamId, memberId | joinedAt, leftAt | history | daily | indefinite |
-| MemberCapacity | `id` | — | tenant+team | Team, Iteration, TeamMember | — | teamId, iterationId, memberId | availableCapacityHours, availableWorkingDays | normalized | hourly | 3 years |
+| MemberCapacity | `id` | — | tenant+team | TeamIteration, TeamMember | — | teamId, iterationId, memberId | availableCapacityHours, availableWorkingDays | normalized | hourly | 3 years |
 | WorkItem | `id` | `System.Id` | tenant+project | Project, Iteration, parent WorkItem | children, revisions, relations | azureWorkItemId, azureRev, title, state | estimate, assignedTo, iterationId, dates | normalized | 15 min | indefinite |
 | WorkItemRelation | `id` | relation `rel`+url | tenant+project | WorkItem | — | sourceWorkItemId, targetAzureWorkItemId, relationType | targetWorkItemId | normalized | 15 min | indefinite |
 | WorkItemRevision | `id` | `System.Rev` | tenant+project | WorkItem | — | workItemId, rev, revisedAt | revisedByMemberId, estimate | history | 15 min | 3 years min |
@@ -57,7 +58,7 @@ Legend — PK: internal UUID unless stated. AzureID: source identifier. Owner: t
 | Entity | PK | Azure ID | Owner | Parents | Children | Required | Nullable | Class | Freq | Retention |
 |---|---|---|---|---|---|---|---|---|---|---|
 | DailyProjectSnapshot | `id` | — | tenant+project | Project | — | snapshotDate, counts | rates | calculated | daily | 3 years |
-| DailyIterationSnapshot | `id` | — | tenant+team | Iteration, Team | — | snapshotDate, scope fields | estimates when unconfigured | calculated | daily | 3 years |
+| DailyIterationSnapshot | `id` | — | tenant+team | TeamIteration | — | snapshotDate, scope fields | estimates when unconfigured | calculated | daily | 3 years |
 | DailyTeamSnapshot | `id` | — | tenant+team | Team | — | snapshotDate | capacity fields | calculated | daily | 3 years |
 | DailyMemberSnapshot | `id` | — | tenant+team | TeamMember, Team | — | snapshotDate | capacity fields | calculated | daily | 18 months |
 | KpiDefinition | `id` (KpiId) | — | global catalog | — | KpiValue | id, formula, thresholds | minimumHistoryDays | normalized (config) | on release | indefinite |
@@ -166,11 +167,23 @@ If a parent and its children both carry estimates in `leaf_only` or `parent_only
 
 ## Iterations and sprint calendar
 
-Contract: `Iteration` + `SprintCalendar` (`src/types/domain/iteration.ts`).
+Contracts: `Iteration` (project-owned Azure node), `TeamIteration` (per-team subscription and settings) and `SprintCalendar` (`src/types/domain/iteration.ts`).
+
+```text
+Project ──< Iteration (one Azure node, stored once)
+                 │
+Team ──────< TeamIteration >──┘   (isCurrent, timeZone, workingWeekdays, selectedForSync)
+                 │
+                 ├─< MemberCapacity
+                 ├─< DailyIterationSnapshot   unique (tenant_id, team_iteration_id, snapshot_date)
+                 └─< SprintCalendar (derived)
+```
+
+The same Azure iteration is reused by many teams without duplicating the node; dates and path live only on `Iteration`, while time zone, working weekdays, days off, `isCurrent` and `selectedForSync` live only on `TeamIteration`. Sync order: iteration nodes first, then team subscriptions, then capacity.
 
 - Working days come from team settings (`workingDays`), minus team days off and public holidays.
 - `elapsedWorkingDays / totalWorkingDays * 100` — never raw calendar days.
-- Day boundaries resolve in the iteration `timeZone` (tenant default `Africa/Cairo`).
+- Day boundaries resolve in the **team iteration** `timeZone` (tenant default `Africa/Cairo`).
 
 Edge cases:
 
@@ -179,10 +192,11 @@ Edge cases:
 | Missing start or finish date | `phase = "undated"`, calendar values `null`, Expected Completion returns `missing_source`. |
 | Future sprint | `elapsedWorkingDays = 0`; trajectory shows plan only. |
 | Finished sprint | Elapsed capped at total; snapshots frozen. |
-| Shared iteration node across teams | Calendar is computed per team, keyed `(iterationId, teamId)`. |
+| Shared iteration node across teams | One `Iteration` row, one `TeamIteration` row per team; the calendar is keyed on `teamIterationId`. |
 | Holidays | Merged into `nonWorkingDays` with kind `holiday`. |
 | Mid-sprint membership change | Capacity is pro-rated by `TeamMembership.joinedAt/leftAt` overlap with working days. |
-| Time-zone boundary | Snapshot business date uses the iteration time zone, not UTC midnight. |
+| Time-zone boundary | Snapshot business date uses the team iteration time zone, not UTC midnight. |
+| Source deletion | Iteration nodes carry `sourceStatus`; a deleted node is tombstoned, its `TeamIteration` rows are marked inaccessible, and history is kept. |
 
 ## Capacity model
 
@@ -206,3 +220,20 @@ The model deliberately produces no productivity score and no per-person ranking;
 ## Historical preservation
 
 `WorkItemRevision`, `WorkItemStateTransition`, `WorkItemScopeChange`, all daily snapshots and `RecommendationDecision` are append-only. Sync writes use `INSERT ... ON CONFLICT DO NOTHING` on their natural keys, so a re-run can fill gaps but never rewrite closed history. Only current-state tables are upserted.
+
+
+## Authorization scopes
+
+Contracts: `src/types/domain/authorization.ts`.
+
+| Entity | Owner | Required | Uniqueness |
+|---|---|---|---|
+| UserRoleAssignment | tenant | userId, role | `(tenant_id, user_id, role)` |
+| UserProjectScope | tenant | userId, projectId, grantedAt | active-only partial unique `(tenant_id, user_id, project_id)` |
+| UserTeamScope | tenant | userId, teamId, grantedAt | active-only partial unique `(tenant_id, user_id, team_id)` |
+
+Grants are revoked (`revokedAt`) or expired (`expiresAt`), never deleted, so access history stays auditable. `AuthorizationContext` is resolved server-side per request; the UI never asserts scope.
+
+## Source lifecycle
+
+Every Azure-sourced entity extends `SourceTracked`: `sourceStatus` (`active | deleted | inaccessible | unknown`), `isDeleted`, `deletedAtSource`, `lastSeenAt`, `accessRevokedAt`. Deletion and lost access are distinguishable at all times; history tables are never tombstoned.

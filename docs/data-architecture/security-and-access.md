@@ -36,7 +36,46 @@ Nothing in this phase requests, stores or references a real credential. No secre
 
 Notes: Executive Viewer sees aggregates and named risks but not individual member utilization detail; per-person metrics are visible to Delivery Manager, Team Lead (own team) and the member themself. No role exposes secrets or the service role key.
 
-RLS is **not implemented in this phase**. Phase 3 will translate the table above into policies keyed on `tenant_id` plus a `has_role()` security-definer function and a scope table for project/team-limited roles.
+### Scope resolution (Phase 2.1)
+
+Roles alone are not sufficient: project- and team-limited roles resolve through the explicit scope tables `core_user_project_scopes` and `core_user_team_scopes`.
+
+| Role | Resolution |
+|---|---|
+| Platform Admin | platform-wide; not bound to one tenant; audited on every access |
+| Tenant Admin | full access inside one `tenant_id`; no scope rows needed |
+| Executive Viewer | tenant-wide **aggregates only** — per-member rows are filtered out server-side |
+| Delivery Manager | union of active rows in `core_user_project_scopes` |
+| Team Lead | union of active rows in `core_user_team_scopes` |
+| Contributor | union of active rows in `core_user_team_scopes` |
+| QA & Release Owner | union of active rows in `core_user_project_scopes` |
+| Read-only Viewer | strictly the explicitly assigned project **and** team scope rows; no implicit inheritance |
+
+A scope row is *active* when `revoked_at IS NULL AND (expires_at IS NULL OR expires_at > now())`.
+
+Phase 3 implements this with security-definer functions, all `STABLE` and `SET search_path = public`:
+
+- `public.has_role(_user_id uuid, _role app_role) returns boolean`
+- `public.has_project_access(_user_id uuid, _project_id uuid) returns boolean`
+- `public.has_team_access(_user_id uuid, _team_id uuid) returns boolean`
+
+Every RLS policy is `tenant_id = current_tenant() AND (has_role(auth.uid(),'tenant_admin') OR has_project_access(auth.uid(), project_id) OR has_team_access(auth.uid(), team_id))`, shaped per table. Authorization is **never** derived from client-supplied filters, query parameters, or the selected workspace in the UI; the frontend selector only narrows what the server already permits.
+
+RLS is **not implemented in this phase** — the section above is the specification Phase 3 translates into policies.
+
+## Secure scheduled synchronization
+
+The cron trigger route is a security boundary, not a convenience endpoint:
+
+- `POST` only; `GET`/`HEAD` return `405`.
+- Body carries `timestamp`, `nonce`, `idempotencyKey`, `tenantId`, `organizationId`, `scope`, `logicalDate`, `keyId`.
+- Signed with `HMAC-SHA256` over `timestamp.nonce.idempotencyKey.body`, compared in constant time.
+- Signing secret lives only in the encrypted secret store, referenced by `keyId`; it never appears in migration SQL, seed data, the database, logs, or client code.
+- Requests outside the configurable clock-skew window (default ±300s) are rejected.
+- Nonces are stored for 7 days; a reused nonce or a reused idempotency key is rejected.
+- Rate-limited per organization; all accepted and rejected triggers are audited with the rejection reason.
+- Errors return an opaque code — never Azure credentials, tokens, URLs with tokens, or upstream response bodies.
+- No client-side code references the route, and it is never exposed in the app's navigation or bundle.
 
 ## Data protection
 

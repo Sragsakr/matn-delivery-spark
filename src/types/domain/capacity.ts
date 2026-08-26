@@ -1,4 +1,4 @@
-import type { IsoDate, IsoTimestamp, Measure, RecordMeta, TenantScoped, Uuid } from "./common";
+import type { IsoDate, IsoTimestamp, Measure, RecordMeta, SourceTracked, TenantScoped, Uuid } from "./common";
 
 /** Per-activity capacity as configured in Azure team capacity. */
 export interface ActivityCapacity {
@@ -8,7 +8,7 @@ export interface ActivityCapacity {
 }
 
 /** Configured capacity for one member in one iteration. Current-state record. */
-export interface MemberCapacity extends TenantScoped, RecordMeta {
+export interface MemberCapacity extends TenantScoped, RecordMeta, SourceTracked {
   readonly id: Uuid;
   readonly teamId: Uuid;
   readonly iterationId: Uuid;
