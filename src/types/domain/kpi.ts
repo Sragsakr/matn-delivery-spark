@@ -1,5 +1,5 @@
 import type {
-  CalculationStamp, HealthStatus, IsoTimestamp, Localized, Measure, TenantScoped, Uuid, ValueAvailability,
+  CalculationStamp, HealthStatus, IsoTimestamp, Localized, Measure, RecordMeta, TenantScoped, Uuid, ValueAvailability,
 } from "./common";
 
 export type KpiId =
