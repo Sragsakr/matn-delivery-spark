@@ -32,7 +32,7 @@ function Metric({
 }
 
 export function EngineeringHealthCard({ data }: { data: EngineeringHealth }) {
-  const { t } = useI18n();
+  const { t, hours } = useI18n();
   return (
     <SectionCard
       title={t("eng.title")}
@@ -50,7 +50,7 @@ export function EngineeringHealthCard({ data }: { data: EngineeringHealth }) {
         <Metric
           icon={Timer}
           labelKey="eng.reviewTime"
-          value={`${data.medianReviewHours}${t("eng.hours")}`}
+          value={hours(data.medianReviewHours)}
           status={data.medianReviewHours > 12 ? "atRisk" : "healthy"}
         />
         <Metric

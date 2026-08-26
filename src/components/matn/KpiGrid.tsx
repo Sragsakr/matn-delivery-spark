@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useI18n, type TKey } from "@/lib/i18n";
 import type { KpiMetric } from "@/data/types";
-import { Iso, StatusPill, statusDot } from "./primitives";
+import { EmptyBlock, Iso, SectionCard, StatusPill, statusDot } from "./primitives";
 
 const statusKey: Record<KpiMetric["status"], TKey> = {
   healthy: "status.healthy",
@@ -155,6 +155,14 @@ export function KpiGrid({ kpis, loading }: { kpis: KpiMetric[]; loading?: boolea
           <Skeleton key={i} className="h-40 w-full rounded-lg" />
         ))}
       </div>
+    );
+  }
+
+  if (kpis.length === 0) {
+    return (
+      <SectionCard title={t("kpi.confidence")}>
+        <EmptyBlock />
+      </SectionCard>
     );
   }
 
