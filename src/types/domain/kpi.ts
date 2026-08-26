@@ -27,15 +27,22 @@ export interface KpiThresholds {
   readonly direction: KpiDirection;
 }
 
-/** Static catalog entry describing how a KPI is produced. */
+/**
+ * Global, immutable KPI identity and formula metadata.
+ * Table: `an_kpi_definitions` — NOT tenant-scoped; `kpi_id` is globally unique.
+ * Thresholds and weights live in `KpiConfigurationOverride`, never here beyond
+ * the shipped default.
+ */
 export interface KpiDefinition {
-  readonly id: KpiId;
+  readonly id: Uuid;
+  readonly kpiId: KpiId;
   readonly name: Localized;
   readonly businessQuestion: Localized;
   /** Human-readable formula; the authoritative text lives in kpi-catalog.md. */
   readonly formula: string;
   readonly unit: KpiUnit;
-  readonly displayFormat: string;
+  /** Default display format; a tenant override may replace it at render time. */
+  readonly defaultDisplayFormat: string;
   readonly requiredEntities: readonly string[];
   readonly requiredAzureFields: readonly string[];
   readonly requiresHistory: boolean;
@@ -44,10 +51,62 @@ export interface KpiDefinition {
   readonly filters: readonly string[];
   readonly exclusions: readonly string[];
   readonly missingDataBehavior: MissingDataBehavior;
-  readonly thresholds: KpiThresholds;
+  /** Shipped defaults; overridable per tenant/project/team. */
+  readonly defaultThresholds: KpiThresholds;
+  /** Default confidence weight when the KPI participates in a composite. */
+  readonly defaultWeight: number | null;
   readonly drilldownKind: "workItems" | "pullRequests" | "builds" | "tests" | "members" | "none";
   readonly limitations: readonly Localized[];
+  /** Bumped whenever the formula changes; definitions are never edited in place. */
   readonly calculationVersion: string;
+}
+
+/** Level at which an override was defined. */
+export type KpiOverrideLevel = "team" | "project" | "tenant" | "global_default";
+
+/**
+ * Table: `an_kpi_configuration_overrides`.
+ * Nullable `project_id` / `team_id` express tenant-wide and project-wide rows;
+ * uniqueness uses a functional index over COALESCE (see database-blueprint.md).
+ */
+export interface KpiConfigurationOverride extends TenantScoped, RecordMeta {
+  readonly id: Uuid;
+  readonly kpiDefinitionId: Uuid;
+  readonly kpiId: KpiId;
+  /** Null = applies to the whole tenant. */
+  readonly projectId: Uuid | null;
+  /** Null = applies to the whole project (or tenant when projectId is null). */
+  readonly teamId: Uuid | null;
+  readonly thresholds: KpiThresholds | null;
+  readonly weight: number | null;
+  readonly displayFormat: string | null;
+  readonly enabled: boolean;
+  readonly effectiveFrom: IsoTimestamp;
+  readonly effectiveTo: IsoTimestamp | null;
+  readonly changedByUserId: Uuid | null;
+  readonly changeReason: string | null;
+}
+
+/**
+ * The configuration actually used by one calculation.
+ * Resolution order: team → project → tenant → global default.
+ * Persisted with every `KpiValue` so historical numbers stay explainable even
+ * after thresholds or weights change.
+ */
+export interface ResolvedKpiConfiguration {
+  readonly kpiId: KpiId;
+  readonly kpiDefinitionId: Uuid;
+  readonly calculationVersion: string;
+  readonly thresholds: KpiThresholds;
+  readonly weight: number | null;
+  readonly displayFormat: string;
+  readonly enabled: boolean;
+  readonly resolvedFrom: KpiOverrideLevel;
+  /** Null when the global default was used. */
+  readonly overrideId: Uuid | null;
+  /** Hash of the resolved configuration; stored on the value row. */
+  readonly configurationVersion: string;
+  readonly resolvedAt: IsoTimestamp;
 }
 
 /** A computed KPI value for one scope at one point in time. */
@@ -58,6 +117,8 @@ export interface KpiValue extends TenantScoped {
   readonly projectId: Uuid | null;
   readonly teamId: Uuid | null;
   readonly iterationId: Uuid | null;
+  /** Set when the value is scoped to one team's view of an iteration. */
+  readonly teamIterationId: Uuid | null;
   readonly measure: Measure;
   readonly unit: KpiUnit;
   readonly status: HealthStatus;
@@ -66,8 +127,11 @@ export interface KpiValue extends TenantScoped {
   readonly drivers: readonly Localized[];
   readonly relatedWorkItemIds: readonly Uuid[];
   readonly validFrom: IsoTimestamp;
+  /** Snapshot of the configuration used; required for historical explainability. */
+  readonly resolvedConfiguration: ResolvedKpiConfiguration;
   readonly stamp: CalculationStamp;
 }
+
 
 /** One transparent input of Sprint Confidence. */
 export interface ConfidenceComponent {
