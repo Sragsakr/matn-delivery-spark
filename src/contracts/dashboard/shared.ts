@@ -15,7 +15,8 @@ export interface DashboardContext {
   /** The Azure iteration node (project-owned, shared across teams). */
   readonly iterationId: Uuid;
   /** The selected team's subscription to that node; null in team-agnostic views. */
-  readonly teamIterationId: Uuid | null;
+  /** Canonical team-sprint reference. Always present; team/iteration ids are derived. */
+  readonly teamIterationId: Uuid;
   readonly labels: {
     readonly organization: Localized;
     readonly project: Localized;
