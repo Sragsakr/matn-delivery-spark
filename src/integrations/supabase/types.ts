@@ -14,6 +14,292 @@ export type Database = {
   }
   public: {
     Tables: {
+      az_work_item_relations: {
+        Row: {
+          access_revoked_at: string | null
+          azure_relation_name: string
+          created_at: string
+          deleted_at_source: string | null
+          id: string
+          is_cross_project: boolean
+          is_deleted: boolean
+          last_seen_at: string | null
+          relation_type: string
+          source_status: Database["public"]["Enums"]["source_status"]
+          source_work_item_id: string
+          target_azure_work_item_id: number
+          target_work_item_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          access_revoked_at?: string | null
+          azure_relation_name: string
+          created_at?: string
+          deleted_at_source?: string | null
+          id?: string
+          is_cross_project?: boolean
+          is_deleted?: boolean
+          last_seen_at?: string | null
+          relation_type: string
+          source_status?: Database["public"]["Enums"]["source_status"]
+          source_work_item_id: string
+          target_azure_work_item_id: number
+          target_work_item_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          access_revoked_at?: string | null
+          azure_relation_name?: string
+          created_at?: string
+          deleted_at_source?: string | null
+          id?: string
+          is_cross_project?: boolean
+          is_deleted?: boolean
+          last_seen_at?: string | null
+          relation_type?: string
+          source_status?: Database["public"]["Enums"]["source_status"]
+          source_work_item_id?: string
+          target_azure_work_item_id?: number
+          target_work_item_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "az_work_item_relations_source_fk"
+            columns: ["tenant_id", "source_work_item_id"]
+            isOneToOne: false
+            referencedRelation: "az_work_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "az_work_item_relations_target_fk"
+            columns: ["tenant_id", "target_work_item_id"]
+            isOneToOne: false
+            referencedRelation: "az_work_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      az_work_items: {
+        Row: {
+          access_revoked_at: string | null
+          activated_date: string | null
+          alias: Database["public"]["Enums"]["work_item_alias"]
+          area_path: string
+          assigned_to_member_id: string | null
+          azure_rev: number
+          azure_severity_raw: string | null
+          azure_url: string | null
+          azure_work_item_id: number
+          azure_work_item_type: string
+          blocked_since: string | null
+          blocked_source_field: string | null
+          changed_at_source: string
+          changed_by_member_id: string | null
+          closed_date: string | null
+          completed_work: number | null
+          counts_toward_scope: boolean
+          created_at: string
+          created_at_source: string
+          created_by_member_id: string | null
+          custom_fields: Json
+          deleted_at_source: string | null
+          description: string | null
+          estimate: number | null
+          estimate_source_field: string | null
+          estimate_unit: string | null
+          hierarchy_depth: number | null
+          id: string
+          is_blocked: boolean
+          is_deleted: boolean
+          is_leaf: boolean
+          iteration_id: string | null
+          iteration_path: string
+          last_seen_at: string | null
+          last_synced_at: string | null
+          organization_id: string
+          original_estimate: number | null
+          parent_azure_work_item_id: number | null
+          parent_work_item_id: string | null
+          priority: number | null
+          project_id: string
+          reason: string | null
+          remaining_work: number | null
+          resolved_date: string | null
+          severity: Database["public"]["Enums"]["severity_level"] | null
+          source_status: Database["public"]["Enums"]["source_status"]
+          state: string
+          state_category: Database["public"]["Enums"]["state_category"]
+          state_change_date: string | null
+          tags: string[]
+          team_id: string | null
+          team_iteration_id: string | null
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          access_revoked_at?: string | null
+          activated_date?: string | null
+          alias?: Database["public"]["Enums"]["work_item_alias"]
+          area_path?: string
+          assigned_to_member_id?: string | null
+          azure_rev?: number
+          azure_severity_raw?: string | null
+          azure_url?: string | null
+          azure_work_item_id: number
+          azure_work_item_type: string
+          blocked_since?: string | null
+          blocked_source_field?: string | null
+          changed_at_source?: string
+          changed_by_member_id?: string | null
+          closed_date?: string | null
+          completed_work?: number | null
+          counts_toward_scope?: boolean
+          created_at?: string
+          created_at_source?: string
+          created_by_member_id?: string | null
+          custom_fields?: Json
+          deleted_at_source?: string | null
+          description?: string | null
+          estimate?: number | null
+          estimate_source_field?: string | null
+          estimate_unit?: string | null
+          hierarchy_depth?: number | null
+          id?: string
+          is_blocked?: boolean
+          is_deleted?: boolean
+          is_leaf?: boolean
+          iteration_id?: string | null
+          iteration_path?: string
+          last_seen_at?: string | null
+          last_synced_at?: string | null
+          organization_id: string
+          original_estimate?: number | null
+          parent_azure_work_item_id?: number | null
+          parent_work_item_id?: string | null
+          priority?: number | null
+          project_id: string
+          reason?: string | null
+          remaining_work?: number | null
+          resolved_date?: string | null
+          severity?: Database["public"]["Enums"]["severity_level"] | null
+          source_status?: Database["public"]["Enums"]["source_status"]
+          state: string
+          state_category?: Database["public"]["Enums"]["state_category"]
+          state_change_date?: string | null
+          tags?: string[]
+          team_id?: string | null
+          team_iteration_id?: string | null
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          access_revoked_at?: string | null
+          activated_date?: string | null
+          alias?: Database["public"]["Enums"]["work_item_alias"]
+          area_path?: string
+          assigned_to_member_id?: string | null
+          azure_rev?: number
+          azure_severity_raw?: string | null
+          azure_url?: string | null
+          azure_work_item_id?: number
+          azure_work_item_type?: string
+          blocked_since?: string | null
+          blocked_source_field?: string | null
+          changed_at_source?: string
+          changed_by_member_id?: string | null
+          closed_date?: string | null
+          completed_work?: number | null
+          counts_toward_scope?: boolean
+          created_at?: string
+          created_at_source?: string
+          created_by_member_id?: string | null
+          custom_fields?: Json
+          deleted_at_source?: string | null
+          description?: string | null
+          estimate?: number | null
+          estimate_source_field?: string | null
+          estimate_unit?: string | null
+          hierarchy_depth?: number | null
+          id?: string
+          is_blocked?: boolean
+          is_deleted?: boolean
+          is_leaf?: boolean
+          iteration_id?: string | null
+          iteration_path?: string
+          last_seen_at?: string | null
+          last_synced_at?: string | null
+          organization_id?: string
+          original_estimate?: number | null
+          parent_azure_work_item_id?: number | null
+          parent_work_item_id?: string | null
+          priority?: number | null
+          project_id?: string
+          reason?: string | null
+          remaining_work?: number | null
+          resolved_date?: string | null
+          severity?: Database["public"]["Enums"]["severity_level"] | null
+          source_status?: Database["public"]["Enums"]["source_status"]
+          state?: string
+          state_category?: Database["public"]["Enums"]["state_category"]
+          state_change_date?: string | null
+          tags?: string[]
+          team_id?: string | null
+          team_iteration_id?: string | null
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "az_work_items_assignee_fk"
+            columns: ["tenant_id", "assigned_to_member_id"]
+            isOneToOne: false
+            referencedRelation: "core_members"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "az_work_items_iteration_fk"
+            columns: ["tenant_id", "project_id", "iteration_id"]
+            isOneToOne: false
+            referencedRelation: "core_iterations"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+          {
+            foreignKeyName: "az_work_items_parent_fk"
+            columns: ["tenant_id", "parent_work_item_id"]
+            isOneToOne: false
+            referencedRelation: "az_work_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "az_work_items_project_fk"
+            columns: ["tenant_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "core_projects"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "az_work_items_team_fk"
+            columns: ["tenant_id", "project_id", "team_id"]
+            isOneToOne: false
+            referencedRelation: "core_teams"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+          {
+            foreignKeyName: "az_work_items_team_iteration_fk"
+            columns: ["tenant_id", "project_id", "team_iteration_id"]
+            isOneToOne: false
+            referencedRelation: "core_team_iterations"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+        ]
+      }
       core_iterations: {
         Row: {
           access_revoked_at: string | null
