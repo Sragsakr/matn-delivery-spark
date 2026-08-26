@@ -302,7 +302,27 @@ type Ctx = {
   setLocale: (l: Locale) => void;
   t: (key: TKey, vars?: Record<string, string | number>) => string;
   n: (value: number, opts?: Intl.NumberFormatOptions) => string;
+  days: (value: number) => string;
+  hours: (value: number) => string;
 };
+
+/** Arabic-aware day count: يوم / يومان / أيام / يوماً. */
+export function formatDays(value: number, locale: Locale) {
+  if (locale === "en") return `${value} ${value === 1 ? "day" : "days"}`;
+  if (value === 1) return "يوم واحد";
+  if (value === 2) return "يومان";
+  if (value >= 3 && value <= 10) return `${value} أيام`;
+  return `${value} يوماً`;
+}
+
+/** Arabic-aware hour count with a real space before the unit. */
+export function formatHours(value: number, locale: Locale) {
+  if (locale === "en") return `${value}h`;
+  if (value === 1) return "ساعة واحدة";
+  if (value === 2) return "ساعتان";
+  if (value >= 3 && value <= 10) return `${value} ساعات`;
+  return `${value} ساعة`;
+}
 
 const LocaleContext = createContext<Ctx | null>(null);
 
@@ -346,9 +366,20 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const days = useCallback((v: number) => formatDays(v, locale), [locale]);
+  const hours = useCallback((v: number) => formatHours(v, locale), [locale]);
+
   const value = useMemo(
-    () => ({ locale, dir: (locale === "ar" ? "rtl" : "ltr") as "rtl" | "ltr", setLocale, t, n }),
-    [locale, setLocale, t, n],
+    () => ({
+      locale,
+      dir: (locale === "ar" ? "rtl" : "ltr") as "rtl" | "ltr",
+      setLocale,
+      t,
+      n,
+      days,
+      hours,
+    }),
+    [locale, setLocale, t, n, days, hours],
   );
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
