@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      az_raw_payloads: {
+        Row: {
+          azure_id: string
+          created_at: string
+          entity_kind: string
+          fetched_at: string
+          id: string
+          payload: Json
+          rev: number
+          tenant_id: string
+        }
+        Insert: {
+          azure_id: string
+          created_at?: string
+          entity_kind: string
+          fetched_at?: string
+          id?: string
+          payload: Json
+          rev?: number
+          tenant_id: string
+        }
+        Update: {
+          azure_id?: string
+          created_at?: string
+          entity_kind?: string
+          fetched_at?: string
+          id?: string
+          payload?: Json
+          rev?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "az_raw_payloads_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "core_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       az_work_item_relations: {
         Row: {
           access_revoked_at: string | null
@@ -79,6 +120,214 @@ export type Database = {
             columns: ["tenant_id", "target_work_item_id"]
             isOneToOne: false
             referencedRelation: "az_work_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      az_work_item_revisions: {
+        Row: {
+          area_path: string | null
+          assigned_to_member_id: string | null
+          azure_work_item_id: number
+          completed_work: number | null
+          created_at: string
+          estimate: number | null
+          fields: Json
+          id: string
+          is_blocked: boolean | null
+          iteration_path: string | null
+          project_id: string
+          remaining_work: number | null
+          rev: number
+          revised_at: string
+          revised_by_member_id: string | null
+          state: string | null
+          state_category: Database["public"]["Enums"]["state_category"]
+          tenant_id: string
+          work_item_id: string
+        }
+        Insert: {
+          area_path?: string | null
+          assigned_to_member_id?: string | null
+          azure_work_item_id: number
+          completed_work?: number | null
+          created_at?: string
+          estimate?: number | null
+          fields?: Json
+          id?: string
+          is_blocked?: boolean | null
+          iteration_path?: string | null
+          project_id: string
+          remaining_work?: number | null
+          rev: number
+          revised_at: string
+          revised_by_member_id?: string | null
+          state?: string | null
+          state_category?: Database["public"]["Enums"]["state_category"]
+          tenant_id: string
+          work_item_id: string
+        }
+        Update: {
+          area_path?: string | null
+          assigned_to_member_id?: string | null
+          azure_work_item_id?: number
+          completed_work?: number | null
+          created_at?: string
+          estimate?: number | null
+          fields?: Json
+          id?: string
+          is_blocked?: boolean | null
+          iteration_path?: string | null
+          project_id?: string
+          remaining_work?: number | null
+          rev?: number
+          revised_at?: string
+          revised_by_member_id?: string | null
+          state?: string | null
+          state_category?: Database["public"]["Enums"]["state_category"]
+          tenant_id?: string
+          work_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "az_work_item_revisions_item_fk"
+            columns: ["tenant_id", "work_item_id"]
+            isOneToOne: false
+            referencedRelation: "az_work_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "az_work_item_revisions_project_fk"
+            columns: ["tenant_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "core_projects"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      az_work_item_scope_changes: {
+        Row: {
+          change_type: string
+          created_at: string
+          estimate_delta: number | null
+          id: string
+          iteration_id: string
+          occurred_at: string
+          project_id: string
+          source_rev: number | null
+          team_iteration_id: string | null
+          tenant_id: string
+          work_item_id: string
+        }
+        Insert: {
+          change_type: string
+          created_at?: string
+          estimate_delta?: number | null
+          id?: string
+          iteration_id: string
+          occurred_at: string
+          project_id: string
+          source_rev?: number | null
+          team_iteration_id?: string | null
+          tenant_id: string
+          work_item_id: string
+        }
+        Update: {
+          change_type?: string
+          created_at?: string
+          estimate_delta?: number | null
+          id?: string
+          iteration_id?: string
+          occurred_at?: string
+          project_id?: string
+          source_rev?: number | null
+          team_iteration_id?: string | null
+          tenant_id?: string
+          work_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "az_work_item_scope_changes_item_fk"
+            columns: ["tenant_id", "work_item_id"]
+            isOneToOne: false
+            referencedRelation: "az_work_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "az_work_item_scope_changes_iteration_fk"
+            columns: ["tenant_id", "project_id", "iteration_id"]
+            isOneToOne: false
+            referencedRelation: "core_iterations"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+          {
+            foreignKeyName: "az_work_item_scope_changes_ti_fk"
+            columns: ["tenant_id", "project_id", "team_iteration_id"]
+            isOneToOne: false
+            referencedRelation: "core_team_iterations"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+        ]
+      }
+      az_work_item_transitions: {
+        Row: {
+          changed_by_member_id: string | null
+          created_at: string
+          duration_seconds: number | null
+          from_state: string | null
+          from_state_category: Database["public"]["Enums"]["state_category"]
+          id: string
+          occurred_at: string
+          project_id: string
+          source_rev: number | null
+          tenant_id: string
+          to_state: string
+          to_state_category: Database["public"]["Enums"]["state_category"]
+          work_item_id: string
+        }
+        Insert: {
+          changed_by_member_id?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          from_state?: string | null
+          from_state_category?: Database["public"]["Enums"]["state_category"]
+          id?: string
+          occurred_at: string
+          project_id: string
+          source_rev?: number | null
+          tenant_id: string
+          to_state: string
+          to_state_category?: Database["public"]["Enums"]["state_category"]
+          work_item_id: string
+        }
+        Update: {
+          changed_by_member_id?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          from_state?: string | null
+          from_state_category?: Database["public"]["Enums"]["state_category"]
+          id?: string
+          occurred_at?: string
+          project_id?: string
+          source_rev?: number | null
+          tenant_id?: string
+          to_state?: string
+          to_state_category?: Database["public"]["Enums"]["state_category"]
+          work_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "az_work_item_transitions_item_fk"
+            columns: ["tenant_id", "work_item_id"]
+            isOneToOne: false
+            referencedRelation: "az_work_items"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "az_work_item_transitions_project_fk"
+            columns: ["tenant_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "core_projects"
             referencedColumns: ["tenant_id", "id"]
           },
         ]
