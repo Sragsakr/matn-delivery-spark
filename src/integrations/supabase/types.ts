@@ -543,6 +543,66 @@ export type Database = {
           },
         ]
       }
+      aud_audit_events: {
+        Row: {
+          action: string
+          actor_type: Database["public"]["Enums"]["actor_type"]
+          actor_user_id: string | null
+          correlation_id: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          idempotency_key: string | null
+          metadata: Json
+          occurred_at: string
+          outcome: Database["public"]["Enums"]["audit_outcome"]
+          tenant_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_type?: Database["public"]["Enums"]["actor_type"]
+          actor_user_id?: string | null
+          correlation_id?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          idempotency_key?: string | null
+          metadata?: Json
+          occurred_at?: string
+          outcome?: Database["public"]["Enums"]["audit_outcome"]
+          tenant_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_type?: Database["public"]["Enums"]["actor_type"]
+          actor_user_id?: string | null
+          correlation_id?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          idempotency_key?: string | null
+          metadata?: Json
+          occurred_at?: string
+          outcome?: Database["public"]["Enums"]["audit_outcome"]
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aud_audit_events_actor_fk"
+            columns: ["tenant_id", "actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "core_users"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "aud_audit_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "core_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       az_builds: {
         Row: {
           access_revoked_at: string | null
