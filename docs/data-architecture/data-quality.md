@@ -24,3 +24,15 @@ Rules run at the end of each sync stage and emit `DataQualityIssue` records (`sr
 | `partial_synchronization` | warning | A sync run ended `partially_completed` | affected domain freshness becomes `partial` |
 
 Severity policy: `critical` issues block the affected KPI and surface on the Intelligence page; `warning` issues degrade confidence and appear in drill-downs; `info` issues are reporting only.
+
+
+## Phase 2.1 additions
+
+| Rule | Severity | Trigger |
+|---|---|---|
+| `deletion_vs_access_ambiguous` | warning | source item unreadable but deletion and revocation cannot be distinguished |
+| `unverified_disappearance` | info | item missing from a list result, awaiting direct-fetch verification |
+| `access_revoked` | critical | `403` on a previously readable scope; sync marks the scope inaccessible |
+| `orphan_team_iteration` | warning | `core_team_iterations` row whose iteration node no longer exists at source |
+| `duplicate_active_scope` | critical | two active authorization scope rows for the same user and project/team |
+| `kpi_override_conflict` | warning | two overlapping override rows resolve to the same level and effective window |
