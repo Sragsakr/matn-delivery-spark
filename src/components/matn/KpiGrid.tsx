@@ -19,6 +19,7 @@ const statusKey: Record<KpiMetric["status"], TKey> = {
   atRisk: "status.atRisk",
   critical: "status.critical",
   neutral: "status.neutral",
+  watch: "status.watch",
 };
 
 function formatValue(kpi: KpiMetric) {

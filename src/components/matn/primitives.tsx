@@ -11,6 +11,7 @@ export const statusStyles: Record<HealthStatus, string> = {
   atRisk: "bg-warning/15 text-warning-foreground border-warning/40 dark:text-warning",
   critical: "bg-critical/12 text-critical border-critical/30",
   neutral: "bg-muted text-muted-foreground border-border",
+  watch: "bg-azure/10 text-azure border-azure/30",
 };
 
 export const statusDot: Record<HealthStatus, string> = {
@@ -18,12 +19,14 @@ export const statusDot: Record<HealthStatus, string> = {
   atRisk: "bg-warning",
   critical: "bg-critical",
   neutral: "bg-muted-foreground",
+  watch: "bg-azure",
 };
 
 export const severityToStatus: Record<Severity, HealthStatus> = {
   critical: "critical",
   high: "atRisk",
   medium: "neutral",
+  watch: "watch",
 };
 
 export function StatusPill({

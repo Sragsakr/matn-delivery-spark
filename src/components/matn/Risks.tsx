@@ -12,6 +12,7 @@ const severityLabel = {
   critical: "status.critical",
   high: "status.atRisk",
   medium: "status.neutral",
+  watch: "status.watch",
 } as const;
 
 function RiskRow({ risk, open, onToggle }: { risk: Risk; open: boolean; onToggle: () => void }) {

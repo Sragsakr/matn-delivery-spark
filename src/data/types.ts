@@ -8,8 +8,8 @@
 
 export type Localized = { ar: string; en: string };
 
-export type HealthStatus = "healthy" | "atRisk" | "critical" | "neutral";
-export type Severity = "critical" | "high" | "medium";
+export type HealthStatus = "healthy" | "atRisk" | "critical" | "neutral" | "watch";
+export type Severity = "critical" | "high" | "medium" | "watch";
 export type DataFreshness = "fresh" | "stale" | "partial" | "error";
 export type SectionState = "ready" | "loading" | "empty" | "error" | "partial";
 
