@@ -3111,6 +3111,402 @@ export type Database = {
           },
         ]
       }
+      ops_cron_nonces: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          idempotency_key: string | null
+          nonce: string
+          purpose: string
+          seen_at: string
+          tenant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          idempotency_key?: string | null
+          nonce: string
+          purpose: string
+          seen_at?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          idempotency_key?: string | null
+          nonce?: string
+          purpose?: string
+          seen_at?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_cron_nonces_tenant_fk"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "core_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_data_quality_issues: {
+        Row: {
+          created_at: string
+          details: Json
+          entity_id: string | null
+          entity_kind: string
+          field: string | null
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          message_ar: string
+          message_en: string
+          project_id: string | null
+          resolved_at: string | null
+          rule_id: string
+          severity: Database["public"]["Enums"]["severity_level"]
+          status: Database["public"]["Enums"]["issue_status"]
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json
+          entity_id?: string | null
+          entity_kind: string
+          field?: string | null
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          message_ar: string
+          message_en: string
+          project_id?: string | null
+          resolved_at?: string | null
+          rule_id: string
+          severity?: Database["public"]["Enums"]["severity_level"]
+          status?: Database["public"]["Enums"]["issue_status"]
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json
+          entity_id?: string | null
+          entity_kind?: string
+          field?: string | null
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          message_ar?: string
+          message_en?: string
+          project_id?: string | null
+          resolved_at?: string | null
+          rule_id?: string
+          severity?: Database["public"]["Enums"]["severity_level"]
+          status?: Database["public"]["Enums"]["issue_status"]
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_data_quality_issues_project_fk"
+            columns: ["tenant_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "core_projects"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ops_snapshot_job_runs: {
+        Row: {
+          created_at: string
+          details: Json
+          finalized_at: string | null
+          finished_at: string | null
+          id: string
+          idempotency_key: string | null
+          logical_date: string
+          project_id: string
+          rows_written: number
+          started_at: string | null
+          status: Database["public"]["Enums"]["sync_run_status"]
+          team_id: string
+          tenant_id: string
+          time_zone: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json
+          finalized_at?: string | null
+          finished_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          logical_date: string
+          project_id: string
+          rows_written?: number
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["sync_run_status"]
+          team_id: string
+          tenant_id: string
+          time_zone?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json
+          finalized_at?: string | null
+          finished_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          logical_date?: string
+          project_id?: string
+          rows_written?: number
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["sync_run_status"]
+          team_id?: string
+          tenant_id?: string
+          time_zone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_snapshot_job_runs_team_fk"
+            columns: ["tenant_id", "project_id", "team_id"]
+            isOneToOne: false
+            referencedRelation: "core_teams"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+        ]
+      }
+      ops_sync_connections: {
+        Row: {
+          auth_mode: Database["public"]["Enums"]["sync_auth_mode"]
+          configuration: Json
+          created_at: string
+          id: string
+          last_verified_at: string | null
+          organization_id: string
+          secret_ref: string | null
+          status: Database["public"]["Enums"]["connection_status"]
+          status_message: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          auth_mode?: Database["public"]["Enums"]["sync_auth_mode"]
+          configuration?: Json
+          created_at?: string
+          id?: string
+          last_verified_at?: string | null
+          organization_id: string
+          secret_ref?: string | null
+          status?: Database["public"]["Enums"]["connection_status"]
+          status_message?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          auth_mode?: Database["public"]["Enums"]["sync_auth_mode"]
+          configuration?: Json
+          created_at?: string
+          id?: string
+          last_verified_at?: string | null
+          organization_id?: string
+          secret_ref?: string | null
+          status?: Database["public"]["Enums"]["connection_status"]
+          status_message?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_sync_connections_org_fk"
+            columns: ["tenant_id", "organization_id"]
+            isOneToOne: true
+            referencedRelation: "core_organizations"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ops_sync_cursors: {
+        Row: {
+          connection_id: string
+          created_at: string
+          entity_kind: string
+          id: string
+          last_run_id: string | null
+          project_id: string | null
+          tenant_id: string
+          updated_at: string
+          watermark_at: string | null
+          watermark_token: string | null
+        }
+        Insert: {
+          connection_id: string
+          created_at?: string
+          entity_kind: string
+          id?: string
+          last_run_id?: string | null
+          project_id?: string | null
+          tenant_id: string
+          updated_at?: string
+          watermark_at?: string | null
+          watermark_token?: string | null
+        }
+        Update: {
+          connection_id?: string
+          created_at?: string
+          entity_kind?: string
+          id?: string
+          last_run_id?: string | null
+          project_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+          watermark_at?: string | null
+          watermark_token?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_sync_cursors_connection_fk"
+            columns: ["tenant_id", "connection_id"]
+            isOneToOne: false
+            referencedRelation: "ops_sync_connections"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "ops_sync_cursors_project_fk"
+            columns: ["tenant_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "core_projects"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ops_sync_locks: {
+        Row: {
+          acquired_at: string
+          created_at: string
+          expires_at: string
+          holder: string | null
+          id: string
+          organization_id: string
+          released_at: string | null
+          run_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          acquired_at?: string
+          created_at?: string
+          expires_at: string
+          holder?: string | null
+          id?: string
+          organization_id: string
+          released_at?: string | null
+          run_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          acquired_at?: string
+          created_at?: string
+          expires_at?: string
+          holder?: string | null
+          id?: string
+          organization_id?: string
+          released_at?: string | null
+          run_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_sync_locks_org_fk"
+            columns: ["tenant_id", "organization_id"]
+            isOneToOne: false
+            referencedRelation: "core_organizations"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      ops_sync_runs: {
+        Row: {
+          connection_id: string
+          correlation_id: string | null
+          created_at: string
+          details: Json
+          entity_kinds: string[]
+          error_count: number
+          finalized_at: string | null
+          finished_at: string | null
+          id: string
+          idempotency_key: string | null
+          items_read: number
+          items_written: number
+          organization_id: string
+          project_id: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["sync_run_status"]
+          tenant_id: string
+          trigger_kind: string
+          updated_at: string
+        }
+        Insert: {
+          connection_id: string
+          correlation_id?: string | null
+          created_at?: string
+          details?: Json
+          entity_kinds?: string[]
+          error_count?: number
+          finalized_at?: string | null
+          finished_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          items_read?: number
+          items_written?: number
+          organization_id: string
+          project_id?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["sync_run_status"]
+          tenant_id: string
+          trigger_kind?: string
+          updated_at?: string
+        }
+        Update: {
+          connection_id?: string
+          correlation_id?: string | null
+          created_at?: string
+          details?: Json
+          entity_kinds?: string[]
+          error_count?: number
+          finalized_at?: string | null
+          finished_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          items_read?: number
+          items_written?: number
+          organization_id?: string
+          project_id?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["sync_run_status"]
+          tenant_id?: string
+          trigger_kind?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_sync_runs_connection_fk"
+            columns: ["tenant_id", "connection_id"]
+            isOneToOne: false
+            referencedRelation: "ops_sync_connections"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
