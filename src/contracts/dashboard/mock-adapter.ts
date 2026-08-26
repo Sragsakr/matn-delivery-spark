@@ -98,6 +98,7 @@ function toKpiValue(kpi: KpiMetric, ctx: DashboardContext, now: string): KpiValu
     projectId: ctx.projectId,
     teamId: ctx.teamId,
     iterationId: ctx.iterationId,
+    teamIterationId: ctx.teamIterationId,
     measure: measure(kpi.value),
     unit: kpi.unit === "percent" ? "percent" : kpi.unit === "count" ? "count" : "ratio",
     status: kpi.status,
@@ -106,6 +107,7 @@ function toKpiValue(kpi: KpiMetric, ctx: DashboardContext, now: string): KpiValu
     drivers: kpi.drivers,
     relatedWorkItemIds: kpi.relatedItems.map((i) => i.id),
     validFrom: now,
+    resolvedConfiguration: mockResolvedConfiguration(KPI_ID_MAP[kpi.id] ?? "scope_completion", now),
     stamp: stamp(now),
   };
 }
