@@ -66,8 +66,12 @@ export type KpiOverrideLevel = "team" | "project" | "tenant" | "global_default";
 
 /**
  * Table: `an_kpi_configuration_overrides`.
- * Nullable `project_id` / `team_id` express tenant-wide and project-wide rows;
- * uniqueness uses a functional index over COALESCE (see database-blueprint.md).
+ * Nullable `project_id` / `team_id` express tenant-wide and project-wide rows.
+ * Structural rules (see database-blueprint.md):
+ * - `CHECK (team_id IS NULL OR project_id IS NOT NULL)` — a team override always names its project.
+ * - composite FK `(tenant_id, project_id, team_id) -> core_teams (tenant_id, project_id, id)`
+ *   so a team from another project fails with `23503`.
+ * - uniqueness uses explicit partial unique indexes, not a COALESCE sentinel.
  */
 export interface KpiConfigurationOverride extends TenantScoped, RecordMeta {
   readonly id: Uuid;
@@ -116,9 +120,10 @@ export interface KpiValue extends TenantScoped {
   readonly organizationId: Uuid;
   readonly projectId: Uuid | null;
   readonly teamId: Uuid | null;
-  readonly iterationId: Uuid | null;
-  /** Set when the value is scoped to one team's view of an iteration. */
+  /** Canonical team-sprint reference; the only persisted sprint relationship. */
   readonly teamIterationId: Uuid | null;
+  /** Derived convenience value, copied from the TeamIteration. */
+  readonly iterationId: Uuid | null;
   readonly measure: Measure;
   readonly unit: KpiUnit;
   readonly status: HealthStatus;

@@ -10,6 +10,9 @@ export interface Recommendation extends TenantScoped {
   readonly organizationId: Uuid;
   readonly projectId: Uuid;
   readonly teamId: Uuid | null;
+  /** Canonical team-sprint reference for sprint-scoped recommendations. */
+  readonly teamIterationId: Uuid | null;
+  /** Derived convenience value. */
   readonly iterationId: Uuid | null;
   readonly priority: number;
   readonly title: Localized;

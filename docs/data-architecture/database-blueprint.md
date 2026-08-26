@@ -35,7 +35,7 @@ Conventions: PK `id uuid default gen_random_uuid()`; every customer table has `t
 | `core_members` | identities | id | tenant, org | `(tenant_id, organization_id, azure_descriptor)` | org | tenant+org | mutable | indefinite | 10²–10³ | Azure |
 | `core_team_memberships` | membership history | id | tenant, team, member | `(tenant_id, team_id, member_id, joined_at)` | team, member | tenant+team | append + close | indefinite | 10³ | Azure |
 | `core_iterations` | Azure iteration **nodes**, project-owned, never duplicated per team | id | tenant, org, project | `(tenant_id, id)`, `(tenant_id, project_id, azure_iteration_id)` | `(tenant_id, project_id, start_date)` | tenant+project | mutable | indefinite | 10²–10³ | Azure |
-| `core_team_iterations` | a team's subscription + team-specific settings | id | tenant, team, iteration | `(tenant_id, id)`, `(tenant_id, team_id, iteration_id)`, partial `(tenant_id, team_id) WHERE is_current` | `(tenant_id, iteration_id)`, `selected_for_sync` | tenant+team | mutable | indefinite | 10³ | Azure + MATN |
+| `core_team_iterations` | a team's subscription + team-specific settings (carries immutable `project_id`) | id | tenant, project, team, iteration | `(tenant_id, id)`, `(tenant_id, team_id, iteration_id)`, partial `(tenant_id, team_id) WHERE is_current` | `(tenant_id, iteration_id)`, `selected_for_sync` | tenant+team | mutable | indefinite | 10³ | Azure + MATN |
 | `core_member_capacity` | capacity config | id | tenant, team_iteration, member | `(tenant_id, id)`, `(tenant_id, team_iteration_id, member_id)` | team_iteration | tenant+team | mutable | 3 years | 10⁴ | Azure |
 | `core_user_project_scopes` | explicit project grants | id | tenant, user, project, granted_by user | `(tenant_id, id)`, partial `(tenant_id, user_id, project_id) WHERE revoked_at IS NULL` | user | tenant | mutable | indefinite | 10³ | MATN |
 | `core_user_team_scopes` | explicit team grants | id | tenant, user, team, granted_by user | `(tenant_id, id)`, partial `(tenant_id, user_id, team_id) WHERE revoked_at IS NULL` | user | tenant | mutable | indefinite | 10³ | MATN |
@@ -69,7 +69,7 @@ Conventions: PK `id uuid default gen_random_uuid()`; every customer table has `t
 | `an_daily_team_snapshots` | team trend | id | `(tenant_id, team_id, snapshot_date)` | date | append-only | 3 years | 10⁴ |
 | `an_daily_member_snapshots` | member load trend | id | `(tenant_id, member_id, team_id, snapshot_date)` | date | append-only | 18 months | 10⁵ |
 | `an_kpi_definitions` | **global** catalog: identity, formula, defaults. No `tenant_id`. | id | `kpi_id` (globally unique), `(kpi_id, calculation_version)` | — | immutable per version | indefinite | 10² |
-| `an_kpi_configuration_overrides` | tenant/project/team thresholds, weights, enablement | id | `(tenant_id, id)`, functional unique `(tenant_id, kpi_definition_id, COALESCE(project_id,'…'), COALESCE(team_id,'…'), effective_from)` | `(tenant_id, kpi_id, effective_from desc)` | mutable config, versioned by `effective_from/to` | indefinite | 10³ |
+| `an_kpi_configuration_overrides` | tenant/project/team thresholds, weights, enablement | id | `(tenant_id, id)` + three explicit partial unique indexes (see "Nullable unique constraints") | `(tenant_id, kpi_id, effective_from desc)` | mutable config, versioned by `effective_from/to` | indefinite | 10³ |
 | `an_kpi_values` | computed values (+ `resolved_configuration` jsonb, `configuration_version`) | id | `(tenant_id, kpi_id, scope_hash, valid_from)` | `(tenant_id, team_iteration_id, kpi_id, valid_from desc)` | append-only | 3 years | 10⁶ |
 
 ### intelligence, operations, audit
@@ -115,9 +115,9 @@ FOREIGN KEY (tenant_id, project_id) REFERENCES public.core_projects (tenant_id, 
 -- core_iterations
 FOREIGN KEY (tenant_id, organization_id) REFERENCES public.core_organizations (tenant_id, id)
 FOREIGN KEY (tenant_id, project_id)      REFERENCES public.core_projects      (tenant_id, id)
--- core_team_iterations
-FOREIGN KEY (tenant_id, team_id)      REFERENCES public.core_teams      (tenant_id, id) ON DELETE CASCADE
-FOREIGN KEY (tenant_id, iteration_id) REFERENCES public.core_iterations (tenant_id, id) ON DELETE CASCADE
+-- core_team_iterations (project-composite; see "Same-project structural integrity")
+FOREIGN KEY (tenant_id, project_id, team_id)      REFERENCES public.core_teams      (tenant_id, project_id, id) ON DELETE CASCADE
+FOREIGN KEY (tenant_id, project_id, iteration_id) REFERENCES public.core_iterations (tenant_id, project_id, id) ON DELETE CASCADE
 -- core_member_capacity
 FOREIGN KEY (tenant_id, team_iteration_id) REFERENCES public.core_team_iterations (tenant_id, id) ON DELETE CASCADE
 FOREIGN KEY (tenant_id, member_id)         REFERENCES public.core_members         (tenant_id, id)
@@ -126,10 +126,11 @@ FOREIGN KEY (tenant_id, user_id)            REFERENCES public.core_users (tenant
 FOREIGN KEY (tenant_id, granted_by_user_id) REFERENCES public.core_users (tenant_id, id)
 FOREIGN KEY (tenant_id, project_id)         REFERENCES public.core_projects (tenant_id, id) ON DELETE CASCADE
 FOREIGN KEY (tenant_id, team_id)            REFERENCES public.core_teams    (tenant_id, id) ON DELETE CASCADE
--- az_work_items
-FOREIGN KEY (tenant_id, project_id)   REFERENCES public.core_projects   (tenant_id, id)
-FOREIGN KEY (tenant_id, iteration_id) REFERENCES public.core_iterations (tenant_id, id)
-FOREIGN KEY (tenant_id, team_id)      REFERENCES public.core_teams      (tenant_id, id)
+-- az_work_items (project-composite)
+FOREIGN KEY (tenant_id, project_id)                REFERENCES public.core_projects        (tenant_id, id)
+FOREIGN KEY (tenant_id, project_id, iteration_id)  REFERENCES public.core_iterations      (tenant_id, project_id, id)
+FOREIGN KEY (tenant_id, project_id, team_id)       REFERENCES public.core_teams           (tenant_id, project_id, id)
+FOREIGN KEY (tenant_id, project_id, team_iteration_id) REFERENCES public.core_team_iterations (tenant_id, project_id, id)
 -- an_kpi_values / an_daily_* / intel_* / ops_* follow the same pattern
 -- an_kpi_configuration_overrides
 FOREIGN KEY (kpi_definition_id) REFERENCES public.an_kpi_definitions (id)   -- global table, no tenant column
@@ -165,7 +166,7 @@ The last row is a schema-wide invariant test, not a per-table test; it runs in C
 | Table | Constraint | Nullable part | Decision | Rationale |
 |---|---|---|---|---|
 | `core_process_mappings` | `(tenant_id, project_id, team_id)` | `team_id` (null = project default) | **Partial unique indexes** — `(tenant_id, project_id) WHERE team_id IS NULL` plus `(tenant_id, project_id, team_id) WHERE team_id IS NOT NULL` | Keeps exactly one project default and one override per team; intent is readable in the index name |
-| `an_kpi_configuration_overrides` | scope + effective window | `project_id`, `team_id` | **Functional unique index using COALESCE** over both columns plus `effective_from` | Two nullable dimensions; COALESCE to a fixed sentinel uuid keeps one index instead of four partials |
+| `an_kpi_configuration_overrides` | scope + effective window | `project_id`, `team_id` | **Three explicit partial unique indexes** (tenant-level, project-level, team-level). The COALESCE sentinel approach is rejected — see "Sentinel UUID decision" | No magic uuid can ever collide with real data; each index states its intent |
 | `an_kpi_values` | `(tenant_id, kpi_id, scope_hash, valid_from)` | scope columns | **Functional key**: `scope_hash` is a generated column hashing COALESCE'd scope ids | Avoids nullable comparison entirely |
 | `intel_recommendations`, `intel_risk_signals` | `(tenant_id, rule_id, scope_hash, first_detected_at)` | `team_id`, `iteration_id` | **Functional `scope_hash`** as above | Same reasoning; signals must dedupe across nullable scopes |
 | `ops_sync_cursors` | `(tenant_id, connection_id, entity_kind, project_id)` | `project_id` (null = org-wide cursor) | **`NULLS NOT DISTINCT`** (PostgreSQL 15+) | One org-wide cursor per entity kind must collide with itself; simplest correct semantics |
@@ -173,6 +174,161 @@ The last row is a schema-wide invariant test, not a per-table test; it runs in C
 | `core_team_iterations` | one current sprint per team | `is_current` | **Partial unique index** `WHERE is_current` | Boolean flag, not nullable column, but same family of decision |
 
 Rule for Phase 3: a `UNIQUE` constraint that contains a nullable column and has no recorded decision above fails review.
+
+## Same-project structural integrity (Phase 2.2)
+
+Tenant-composite keys stop cross-tenant rows but still allow a team from project A to be paired with an iteration from project B **inside the same tenant**. Project membership is therefore enforced by the same mechanism, not by application code and not by RLS.
+
+### Additional candidate keys
+
+```sql
+ALTER TABLE public.core_teams
+  ADD CONSTRAINT core_teams_tenant_project_id_key UNIQUE (tenant_id, project_id, id);
+ALTER TABLE public.core_iterations
+  ADD CONSTRAINT core_iterations_tenant_project_id_key UNIQUE (tenant_id, project_id, id);
+```
+
+`core_team_iterations` carries a denormalized, immutable `project_id`:
+
+```sql
+FOREIGN KEY (tenant_id, project_id, team_id)
+  REFERENCES public.core_teams (tenant_id, project_id, id) ON DELETE CASCADE,
+FOREIGN KEY (tenant_id, project_id, iteration_id)
+  REFERENCES public.core_iterations (tenant_id, project_id, id) ON DELETE CASCADE,
+UNIQUE (tenant_id, id),
+UNIQUE (tenant_id, project_id, id),          -- candidate key for project-scoped children
+UNIQUE (tenant_id, team_id, iteration_id)
+```
+
+Because both foreign keys share the same `project_id` column, a team and an iteration from different projects cannot be combined: the second FK fails with `23503`.
+
+### Project-scoped children
+
+| Table | Composite foreign keys |
+|---|---|
+| `az_work_items` | `(tenant_id, project_id, iteration_id) -> core_iterations (tenant_id, project_id, id)`; `(tenant_id, project_id, team_id) -> core_teams (tenant_id, project_id, id)`; `(tenant_id, project_id, team_iteration_id) -> core_team_iterations (tenant_id, project_id, id)` when sprint-scoped |
+| `core_member_capacity` | `(tenant_id, team_iteration_id) -> core_team_iterations (tenant_id, id)`; `(tenant_id, member_id) -> core_members (tenant_id, id)`. Any `team_id` / `iteration_id` columns are **generated/derived** copies, not foreign keys |
+| `an_daily_iteration_snapshots` | `(tenant_id, project_id, team_iteration_id) -> core_team_iterations (tenant_id, project_id, id)`; identity `UNIQUE (tenant_id, team_iteration_id, snapshot_date)` |
+| `an_daily_team_snapshots`, `an_daily_member_snapshots` | `(tenant_id, project_id, team_id) -> core_teams (...)` and, when the day had a sprint, `(tenant_id, project_id, team_iteration_id) -> core_team_iterations (...)` |
+| `an_kpi_values`, `intel_risk_signals`, `intel_recommendations` | `(tenant_id, project_id, team_iteration_id) -> core_team_iterations (tenant_id, project_id, id)`; `(tenant_id, project_id, team_id) -> core_teams (...)` |
+| `an_kpi_configuration_overrides` | `CHECK (team_id IS NULL OR project_id IS NOT NULL)` + `(tenant_id, project_id, team_id) -> core_teams (tenant_id, project_id, id)` |
+| `core_process_mappings` | `CHECK (team_id IS NULL OR project_id IS NOT NULL)` + `(tenant_id, project_id, team_id) -> core_teams (tenant_id, project_id, id)` |
+
+Rules: `project_id` is `NOT NULL` on project-scoped children and never updatable; derived `team_id` / `iteration_id` columns beside a `team_iteration_id` are documented as convenience copies and are either generated or maintained by sync — they are never the relationship of record.
+
+### Constraint test matrix (run as `service_role`, RLS bypassed)
+
+| # | Attempted row | Expected |
+|---|---|---|
+| 1 | `core_team_iterations` with team from project A and iteration from project B | `23503` |
+| 2 | `an_kpi_configuration_overrides` with `project_id = A`, `team_id` belonging to B | `23503` |
+| 3 | `an_kpi_configuration_overrides` with `team_id` set and `project_id NULL` | `23514` check violation |
+| 4 | `core_process_mappings` with `project_id = A`, `team_id` belonging to B | `23503` |
+| 5 | `az_work_items` with `project_id = A` and iteration from B | `23503` |
+| 6 | `an_daily_iteration_snapshots` with `project_id = A` and team iteration from B | `23503` |
+| 7 | `core_member_capacity` referencing a team iteration of another tenant | `23503` |
+| 8 | Any cross-tenant variant of 1–7 | `23503` |
+| 9 | Schema invariant: every composite FK has a matching `UNIQUE` candidate key | zero unmatched |
+| 10 | Schema invariant: no project-scoped child references `core_teams`/`core_iterations` without `project_id` | zero violations |
+
+## Sentinel UUID decision
+
+An earlier draft made `an_kpi_configuration_overrides` unique through
+`COALESCE(project_id, '00000000-0000-0000-0000-000000000000')`. **That approach is dropped.** A sentinel uuid is indistinguishable from real data and one bad insert silently merges scopes. The replacement is three explicit partial unique indexes:
+
+```sql
+CREATE UNIQUE INDEX kpi_override_tenant_level
+  ON public.an_kpi_configuration_overrides (tenant_id, kpi_definition_id, effective_from)
+  WHERE project_id IS NULL AND team_id IS NULL;
+
+CREATE UNIQUE INDEX kpi_override_project_level
+  ON public.an_kpi_configuration_overrides (tenant_id, kpi_definition_id, project_id, effective_from)
+  WHERE project_id IS NOT NULL AND team_id IS NULL;
+
+CREATE UNIQUE INDEX kpi_override_team_level
+  ON public.an_kpi_configuration_overrides (tenant_id, kpi_definition_id, project_id, team_id, effective_from)
+  WHERE team_id IS NOT NULL;
+```
+
+Where a sentinel is still unavoidable (the generated `scope_hash` columns on `an_kpi_values`, `intel_risk_signals`, `intel_recommendations`), the sentinel is fixed and documented as
+`'00000000-0000-0000-0000-000000000000'`, and every table that could supply a real id for that column carries a guard so the value can never be a real key:
+
+```sql
+ALTER TABLE public.core_projects ADD CONSTRAINT core_projects_id_not_sentinel
+  CHECK (id <> '00000000-0000-0000-0000-000000000000');
+ALTER TABLE public.core_teams ADD CONSTRAINT core_teams_id_not_sentinel
+  CHECK (id <> '00000000-0000-0000-0000-000000000000');
+ALTER TABLE public.core_iterations ADD CONSTRAINT core_iterations_id_not_sentinel
+  CHECK (id <> '00000000-0000-0000-0000-000000000000');
+ALTER TABLE public.core_team_iterations ADD CONSTRAINT core_team_iterations_id_not_sentinel
+  CHECK (id <> '00000000-0000-0000-0000-000000000000');
+```
+
+## Authorization grant lifecycle
+
+A grant is **active** only when `revoked_at IS NULL AND (expires_at IS NULL OR expires_at > now())`. An expired row with `revoked_at IS NULL` is *not* active but still occupies the partial unique index, so it is closed transactionally before a replacement is inserted. The partial index stays as-is:
+
+```sql
+CREATE UNIQUE INDEX core_user_project_scopes_active
+  ON public.core_user_project_scopes (tenant_id, user_id, project_id) WHERE revoked_at IS NULL;
+CREATE UNIQUE INDEX core_user_team_scopes_active
+  ON public.core_user_team_scopes (tenant_id, user_id, team_id) WHERE revoked_at IS NULL;
+```
+
+Proposed Phase 3 function (specification, not yet created):
+
+```sql
+CREATE OR REPLACE FUNCTION public.grant_project_scope(
+  _tenant_id uuid, _user_id uuid, _project_id uuid,
+  _granted_by uuid, _expires_at timestamptz, _idempotency_key text, _reason text
+) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE _existing uuid; _new uuid;
+BEGIN
+  -- 1. serialize concurrent grants for this (user, target)
+  PERFORM pg_advisory_xact_lock(hashtextextended(_user_id::text || ':' || _project_id::text, 0));
+
+  -- 2. close expired-but-open rows in the same transaction
+  UPDATE public.core_user_project_scopes
+     SET revoked_at = now(), updated_at = now()
+   WHERE tenant_id = _tenant_id AND user_id = _user_id AND project_id = _project_id
+     AND revoked_at IS NULL AND expires_at IS NOT NULL AND expires_at <= now();
+
+  -- 3. return the existing active grant (idempotent)
+  SELECT id INTO _existing FROM public.core_user_project_scopes
+   WHERE tenant_id = _tenant_id AND user_id = _user_id AND project_id = _project_id
+     AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > now())
+   FOR UPDATE;
+  IF _existing IS NOT NULL THEN
+    PERFORM public.write_audit_event(_tenant_id, _granted_by, 'scope.grant.noop', 'core_user_project_scopes', _existing, _idempotency_key);
+    RETURN _existing;
+  END IF;
+
+  -- 4. insert the replacement
+  INSERT INTO public.core_user_project_scopes
+    (tenant_id, user_id, project_id, granted_by_user_id, granted_at, expires_at)
+  VALUES (_tenant_id, _user_id, _project_id, _granted_by, now(), _expires_at)
+  RETURNING id INTO _new;
+
+  -- 5. audit
+  PERFORM public.write_audit_event(_tenant_id, _granted_by, 'scope.grant.created', 'core_user_project_scopes', _new, _idempotency_key);
+  RETURN _new;
+END; $$;
+```
+
+`grant_team_scope` is identical against `core_user_team_scopes`. Every authorization read — including `has_project_access` and `has_team_access` — applies the active predicate; none of them test `revoked_at IS NULL` alone.
+
+### Authorization test matrix
+
+| # | Scenario | Expected |
+|---|---|---|
+| 1 | Grant while an active grant exists | returns the existing id, no new row, `scope.grant.noop` audited |
+| 2 | Grant while an expired open row exists | expired row gets `revoked_at`, one new active row, no unique violation |
+| 3 | Grant after an explicit revoke | new active row inserted, revoked row preserved |
+| 4 | Two concurrent grant calls for the same user and target | advisory lock serializes them; exactly one new row; both return the same id |
+| 5 | Access check one second after `expires_at` | denied, without any cleanup job having run |
+| 6 | Access check with `revoked_at` set but `expires_at` in the future | denied |
+| 7 | Retry with the same idempotency key | same grant id, single audit event chain, no duplicate row |
 
 ## Retention defaults (tenant-configurable)
 

@@ -25,8 +25,15 @@ export interface DailyProjectSnapshot extends SnapshotBase {
   readonly deploymentCount: number;
 }
 
+/**
+ * Canonical identity: `(tenant_id, team_iteration_id, snapshot_date)`.
+ * `iterationId` / `teamId` are derived convenience values only.
+ */
 export interface DailyIterationSnapshot extends SnapshotBase {
+  readonly teamIterationId: Uuid;
+  /** Derived convenience value, copied from the TeamIteration. */
   readonly iterationId: Uuid;
+  /** Derived convenience value, copied from the TeamIteration. */
   readonly teamId: Uuid;
   readonly workingDayIndex: number | null;
   readonly totalWorkingDays: number | null;
@@ -43,6 +50,12 @@ export interface DailyIterationSnapshot extends SnapshotBase {
 
 export interface DailyTeamSnapshot extends SnapshotBase {
   readonly teamId: Uuid;
+  /**
+   * Canonical team-sprint reference; null only when the team had no sprint on
+   * that day. When set, `iterationId` is derived from it.
+   */
+  readonly teamIterationId: Uuid | null;
+  /** Derived convenience value. */
   readonly iterationId: Uuid | null;
   readonly availableCapacityHours: number | null;
   readonly assignedRemainingHours: number | null;
@@ -53,6 +66,9 @@ export interface DailyTeamSnapshot extends SnapshotBase {
 export interface DailyMemberSnapshot extends SnapshotBase {
   readonly memberId: Uuid;
   readonly teamId: Uuid;
+  /** Canonical team-sprint reference; null only when the team had no sprint that day. */
+  readonly teamIterationId: Uuid | null;
+  /** Derived convenience value. */
   readonly iterationId: Uuid | null;
   readonly availableCapacityHours: number | null;
   readonly assignedRemainingHours: number | null;

@@ -7,10 +7,17 @@ export interface ActivityCapacity {
   readonly hoursPerDay: number;
 }
 
-/** Configured capacity for one member in one iteration. Current-state record. */
+/**
+ * Configured capacity for one member in one team-iteration. Current-state record.
+ * Table: `core_member_capacity`, keyed on `(tenant_id, team_iteration_id, member_id)`.
+ */
 export interface MemberCapacity extends TenantScoped, RecordMeta, SourceTracked {
   readonly id: Uuid;
+  /** Canonical team-sprint reference. The only persisted relationship. */
+  readonly teamIterationId: Uuid;
+  /** Derived convenience value, copied from the TeamIteration. Never a foreign key on its own. */
   readonly teamId: Uuid;
+  /** Derived convenience value, copied from the TeamIteration. Never a foreign key on its own. */
   readonly iterationId: Uuid;
   readonly memberId: Uuid;
   readonly activities: readonly ActivityCapacity[];
@@ -33,10 +40,14 @@ export interface UtilizationBands {
 
 export type UtilizationBand = "under" | "balanced" | "near" | "over" | "unknown";
 
-/** Calculated load for one member in one iteration. */
+/** Calculated load for one member in one team-iteration. */
 export interface MemberLoad {
   readonly memberId: Uuid;
+  /** Canonical team-sprint reference. */
+  readonly teamIterationId: Uuid;
+  /** Derived convenience value. */
   readonly teamId: Uuid;
+  /** Derived convenience value. */
   readonly iterationId: Uuid;
   readonly availableCapacityHours: number | null;
   readonly assignedRemainingHours: number | null;

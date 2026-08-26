@@ -24,6 +24,9 @@ export interface RiskSignal extends TenantScoped {
   readonly organizationId: Uuid;
   readonly projectId: Uuid;
   readonly teamId: Uuid | null;
+  /** Canonical team-sprint reference for sprint-scoped signals. */
+  readonly teamIterationId: Uuid | null;
+  /** Derived convenience value. */
   readonly iterationId: Uuid | null;
   readonly severity: Severity;
   readonly status: RiskStatus;

@@ -64,6 +64,16 @@ Phase 2 stops at specification. Nothing below is executed until a human approves
 - **Consequences**: More constraints and one extra join for team-scoped iteration data; in exchange, cross-tenant contamination becomes structurally impossible, multi-team sprints stop duplicating nodes, least-privilege access is representable, and history stays trustworthy through deletions and permission loss.
 - **Alternatives**: Rely on RLS alone (rejected — a service-role bug bypasses it), keep per-team iteration duplicates (rejected — divergent dates), roles without scope tables (rejected — cannot express Delivery Manager or Read-only Viewer), unauthenticated cron route behind an obscure path (rejected).
 
+### ADR-010: Same-project structural integrity and canonical team-sprint reference
+- **Context**: Phase 2.1 made cross-*tenant* rows impossible, but inside one tenant a team from project A could still be paired with an iteration from project B. Separately, several contracts still selected `teamId` and `iterationId` independently, allowing pairs with no corresponding `TeamIteration`. The KPI override uniqueness relied on a COALESCE sentinel uuid, and the active-grant index treated an expired row as active.
+- **Decision**:
+  1. **Canonical reference** — `teamIterationId` is the only persisted team-sprint relationship across capacity, load, all daily snapshots, KPI values, risk signals and recommendations. `teamId` / `iterationId` survive only as documented derived convenience values.
+  2. **Project-composite keys** — `core_teams` and `core_iterations` gain `UNIQUE (tenant_id, project_id, id)`; `core_team_iterations` carries an immutable `project_id` and references both parents through it, so a cross-project pair fails with `23503`. Project-scoped children follow the same pattern; KPI overrides and process mappings add `CHECK (team_id IS NULL OR project_id IS NOT NULL)` plus the project-composite team FK.
+  3. **No sentinel uniqueness for overrides** — three explicit partial unique indexes replace the COALESCE sentinel; where a sentinel remains (generated `scope_hash` columns) it is documented and guarded by `CHECK (id <> '00000000-0000-0000-0000-000000000000')` on every table that could produce a real id.
+  4. **Grant lifecycle** — one active predicate everywhere, plus idempotent security-definer grant functions that lock, close expired rows, return existing active grants, insert, and audit.
+- **Consequences**: One extra column and one extra index per project-scoped child, and a mandatory `TeamIteration` lookup before any sprint-scoped write; in exchange, invalid cross-project relationships are rejected by PostgreSQL rather than by application code or RLS, and expiring grants behave consistently without a cleanup job.
+- **Alternatives**: Application-level validation (rejected — bypassable by sync workers and service-role code), triggers (rejected — heavier and still procedural), RLS-only enforcement (rejected — service-role paths bypass it), a `now()`-aware unique index (impossible — index predicates must be immutable).
+
 ## Phase 3 — Database foundation
 
 - **Inputs**: approved `database-blueprint.md`, `domain-model.md`, `security-and-access.md`.
@@ -72,7 +82,7 @@ Phase 2 stops at specification. Nothing below is executed until a human approves
 - **Acceptance**: every public table has GRANT + RLS + at least one policy; no table stores roles on a profile; cross-tenant read attempt returns zero rows in tests; types compile.
 - **Rollback**: migrations are additive and reversible per group; drop the newest group and restore generated types.
 - **Security checks**: linter clean; no `anon` grants on tenant tables; immutable tables deny UPDATE/DELETE except `service_role`.
-- **Tests**: policy tests per role, uniqueness/constraint tests, seed integrity test, **cross-tenant insert tests that expect `23503` foreign-key violations (not merely empty RLS results)**, a schema invariant test asserting every composite FK has a matching `UNIQUE (tenant_id, id)`, and scope-resolution tests for project/team-limited roles.
+- **Tests**: policy tests per role, uniqueness/constraint tests, seed integrity test, **cross-tenant insert tests that expect `23503` foreign-key violations (not merely empty RLS results)**, schema invariant tests asserting every composite FK has a matching candidate key and that no project-scoped child references a team or iteration without `project_id`, cross-project insert tests expecting `23503`, and the authorization grant matrix (active duplicate, expired replacement, revoked replacement, concurrent grants, access immediately after expiry), and scope-resolution tests for project/team-limited roles.
 
 ## Phase 4 — Azure DevOps connection (read-only)
 
