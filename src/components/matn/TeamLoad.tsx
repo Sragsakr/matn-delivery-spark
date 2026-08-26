@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import type { TeamMemberLoad } from "@/data/types";
-import { SectionCard, StatusPill } from "./primitives";
+import { EmptyBlock, Iso, SectionCard, StatusPill } from "./primitives";
 
 const signalStatus = {
   over: "critical",
@@ -23,12 +23,17 @@ function heatClass(ratio: number) {
 }
 
 export function TeamLoadCard({ members }: { members: TeamMemberLoad[] }) {
-  const { t, locale } = useI18n();
+  const { t, locale, hours } = useI18n();
 
   return (
     <SectionCard title={t("team.title")} subtitle={t("team.subtitle")} bodyClassName="p-0">
+      {members.length === 0 ? (
+        <div className="p-4">
+          <EmptyBlock />
+        </div>
+      ) : null}
       {/* Desktop table */}
-      <div className="hidden md:block">
+      <div className={cn("hidden", members.length > 0 && "md:block")}>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
@@ -52,8 +57,7 @@ export function TeamLoadCard({ members }: { members: TeamMemberLoad[] }) {
                     </div>
                   </td>
                   <td className="px-3 py-3 tabular-nums text-muted-foreground">
-                    {m.capacityHours}
-                    {t("team.hours")}
+                    <Iso>{hours(m.capacityHours)}</Iso>
                   </td>
                   <td className="px-3 py-3">
                     <span
@@ -62,8 +66,7 @@ export function TeamLoadCard({ members }: { members: TeamMemberLoad[] }) {
                         heatClass(ratio),
                       )}
                     >
-                      {m.assignedHours}
-                      {t("team.hours")}
+                      <Iso>{hours(m.assignedHours)}</Iso>
                     </span>
                   </td>
                   <td className="px-3 py-3 tabular-nums text-foreground">{m.activeItems}</td>
@@ -99,7 +102,7 @@ export function TeamLoadCard({ members }: { members: TeamMemberLoad[] }) {
       </div>
 
       {/* Mobile cards */}
-      <ul className="divide-y divide-border md:hidden">
+      <ul className={cn("divide-y divide-border md:hidden", members.length === 0 && "hidden")}>
         {members.map((m) => {
           const ratio = m.assignedHours / Math.max(m.capacityHours, 1);
           return (
@@ -115,15 +118,13 @@ export function TeamLoadCard({ members }: { members: TeamMemberLoad[] }) {
                 <div className="rounded-md border border-border bg-surface px-2.5 py-1.5">
                   <div className="text-muted-foreground">{t("team.capacity")}</div>
                   <div className="tabular-nums text-foreground">
-                    {m.capacityHours}
-                    {t("team.hours")}
+                    <Iso>{hours(m.capacityHours)}</Iso>
                   </div>
                 </div>
                 <div className={cn("rounded-md px-2.5 py-1.5", heatClass(ratio))}>
                   <div className="opacity-80">{t("team.assigned")}</div>
                   <div className="tabular-nums">
-                    {m.assignedHours}
-                    {t("team.hours")}
+                    <Iso>{hours(m.assignedHours)}</Iso>
                   </div>
                 </div>
                 <div className="rounded-md border border-border bg-surface px-2.5 py-1.5">

@@ -2,11 +2,19 @@ import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n, type TKey } from "@/lib/i18n";
 import type { FunnelStage } from "@/data/types";
-import { SectionCard, statusDot } from "./primitives";
+import { EmptyBlock, Iso, SectionCard, statusDot } from "./primitives";
 
 export function FunnelCard({ stages }: { stages: FunnelStage[] }) {
-  const { t } = useI18n();
+  const { t, days } = useI18n();
   const max = Math.max(...stages.map((s) => s.count), 1);
+
+  if (stages.length === 0) {
+    return (
+      <SectionCard title={t("funnel.title")} subtitle={t("funnel.subtitle")}>
+        <EmptyBlock />
+      </SectionCard>
+    );
+  }
 
   return (
     <SectionCard title={t("funnel.title")} subtitle={t("funnel.subtitle")}>
@@ -21,7 +29,7 @@ export function FunnelCard({ stages }: { stages: FunnelStage[] }) {
                 </span>
               </div>
               <div className="mt-1.5 flex items-baseline gap-1.5">
-                <span className="text-2xl font-semibold tabular-nums text-foreground">{stage.count}</span>
+                <Iso className="text-2xl font-semibold tabular-nums text-foreground">{stage.count}</Iso>
                 <span className="text-[11px] text-muted-foreground">{t("funnel.items")}</span>
               </div>
               <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border">
@@ -41,7 +49,7 @@ export function FunnelCard({ stages }: { stages: FunnelStage[] }) {
               </div>
               {stage.avgDays > 0 ? (
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                  {t("funnel.aging")}: {t("risks.days", { a: stage.avgDays })}
+                  {t("funnel.aging")}: <Iso>{days(stage.avgDays)}</Iso>
                 </p>
               ) : (
                 <p className="mt-2 text-[11px] text-muted-foreground">&nbsp;</p>

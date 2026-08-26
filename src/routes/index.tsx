@@ -10,7 +10,7 @@ import { FunnelCard } from "@/components/matn/Funnel";
 import { TeamLoadCard } from "@/components/matn/TeamLoad";
 import { EngineeringHealthCard } from "@/components/matn/EngineeringHealth";
 import { RecommendedActionsCard } from "@/components/matn/RecommendedActions";
-import { ErrorBlock, LoadingBlock, Notice, SectionCard } from "@/components/matn/primitives";
+import { ErrorBlock, Iso, LoadingBlock, Notice, SectionCard } from "@/components/matn/primitives";
 import { useI18n } from "@/lib/i18n";
 import { useWorkspace } from "@/data/workspace";
 
@@ -40,29 +40,33 @@ function OverviewPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6">
-        <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
+        <header className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-              {t("overview.title")}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">{t("overview.subtitle")}</p>
-            {iteration ? (
-              <p className="mt-2 text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">{iteration.name[locale]}</span>
-                {" · "}
-                {t("overview.sprintDay", { a: iteration.currentDay, b: iteration.totalDays })}
-              </p>
-            ) : null}
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+              <h1 className="min-w-0 text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+                {t("overview.title")}
+              </h1>
+              {iteration ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-0.5 text-[11px] text-muted-foreground">
+                  <span className="font-medium text-foreground">{iteration.name[locale]}</span>
+                  <span aria-hidden>·</span>
+                  <Iso>
+                    {t("overview.sprintDay", { a: iteration.currentDay, b: iteration.totalDays })}
+                  </Iso>
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-0.5 text-[13px] text-muted-foreground">{t("overview.subtitle")}</p>
           </div>
           <Button
             variant="outline"
             size="sm"
-            className="shrink-0"
+            className="w-full min-h-11 shrink-0 sm:min-h-9 sm:w-auto"
             onClick={() => toast.info(t("overview.copilotSoon"))}
           >
             <Sparkles className="size-3.5" aria-hidden />
-            <span className="hidden sm:inline">{t("overview.askCopilot")}</span>
+            {t("overview.askCopilot")}
           </Button>
         </header>
 
@@ -73,12 +77,19 @@ function OverviewPage() {
         ) : (
           <>
             {!loading && snapshot && snapshot.freshness === "stale" ? (
-              <Notice tone="warning" title={t("state.stale.title")} body={t("state.stale.body")} />
+              <Notice
+                tone="warning"
+                title={t("state.stale.title")}
+                body={t("state.stale.body", { a: t("common.minutes", { a: snapshot.lastSyncMinutesAgo }) })}
+              />
+            ) : null}
+            {!loading && snapshot && snapshot.freshness === "partial" ? (
+              <Notice tone="neutral" title={t("state.partial.title")} body={t("state.partial.body")} />
             ) : null}
 
             <KpiGrid kpis={snapshot?.kpis ?? []} loading={loading} />
 
-            <div className="grid gap-6 xl:grid-cols-[1.35fr_1fr]">
+            <div className="grid gap-4 xl:grid-cols-[1.35fr_1fr]">
               {loading || !snapshot ? (
                 <SectionCard title={t("trajectory.title")}>
                   <LoadingBlock rows={5} />
@@ -107,7 +118,7 @@ function OverviewPage() {
               <FunnelCard stages={snapshot.funnel} />
             )}
 
-            <div className="grid gap-6 xl:grid-cols-[1.35fr_1fr]">
+            <div className="grid gap-4 xl:grid-cols-[1.35fr_1fr]">
               {loading || !snapshot ? (
                 <SectionCard title={t("team.title")}>
                   <LoadingBlock rows={5} />

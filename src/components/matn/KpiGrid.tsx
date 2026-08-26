@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useI18n, type TKey } from "@/lib/i18n";
 import type { KpiMetric } from "@/data/types";
-import { StatusPill, statusDot } from "./primitives";
+import { EmptyBlock, Iso, SectionCard, StatusPill, statusDot } from "./primitives";
 
 const statusKey: Record<KpiMetric["status"], TKey> = {
   healthy: "status.healthy",
@@ -43,74 +43,100 @@ function Sparkline({ values, status }: { values: number[]; status: KpiMetric["st
           ? "var(--success)"
           : "var(--muted-foreground)";
   return (
-    <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="h-8 w-full" aria-hidden>
+    <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="h-6 w-full" aria-hidden>
       <polyline fill="none" stroke={stroke} strokeWidth="2" points={points} vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
 
-function KpiCard({ kpi, onOpen }: { kpi: KpiMetric; onOpen: () => void }) {
+function KpiCard({ kpi, onOpen, primary }: { kpi: KpiMetric; onOpen: () => void; primary?: boolean }) {
   const { t } = useI18n();
   const diff = kpi.value - kpi.comparison.value;
   const DiffIcon = diff > 0 ? ArrowUpRight : diff < 0 ? ArrowDownRight : Minus;
+  const statusLabel =
+    kpi.id === "expected" ? t("status.onTrack") : t(statusKey[kpi.status]);
+  const statusTone = kpi.id === "expected" ? "healthy" : kpi.status;
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="group flex flex-col gap-3 rounded-lg border border-border bg-card p-4 text-start shadow-card transition-colors hover:border-azure/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label={`${t(kpi.labelKey as TKey)} — ${formatValue(kpi)} — ${statusLabel}`}
+      className={cn(
+        "group flex flex-col gap-2 rounded-lg border bg-card p-3.5 text-start shadow-card transition-colors hover:border-azure/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        primary ? "border-azure/60 ring-1 ring-azure/25" : "border-border",
+      )}
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-        <span className="min-w-0 truncate text-[13px] font-medium text-muted-foreground">
-          {t(kpi.labelKey as TKey)}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 truncate text-[13px] font-medium text-muted-foreground">
+            {t(kpi.labelKey as TKey)}
+          </span>
+          {primary ? (
+            <span className="shrink-0 rounded-full border border-azure/40 bg-azure/10 px-1.5 py-px text-[10px] font-medium text-azure">
+              {t("kpi.primary")}
+            </span>
+          ) : null}
         </span>
         <Tooltip>
           <TooltipTrigger asChild>
             <span
               className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
-              role="button"
-              tabIndex={0}
-              aria-label={t(kpi.tooltipKey as TKey)}
-              onClick={(e) => e.stopPropagation()}
+              aria-hidden
             >
-              <Info className="size-3.5" aria-hidden />
+              <Info className="size-3.5" />
             </span>
           </TooltipTrigger>
           <TooltipContent className="max-w-64 text-xs">{t(kpi.tooltipKey as TKey)}</TooltipContent>
         </Tooltip>
       </div>
 
-      <div className="flex items-end justify-between gap-2">
-        <span className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
+        <span
+          className={cn(
+            "font-semibold tabular-nums tracking-tight text-foreground",
+            primary ? "text-4xl" : "text-3xl",
+          )}
+          dir="ltr"
+        >
           {formatValue(kpi)}
         </span>
-        <StatusPill status={kpi.status}>{t(statusKey[kpi.status])}</StatusPill>
+        <StatusPill status={statusTone}>{statusLabel}</StatusPill>
       </div>
 
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <DiffIcon
-          className={cn(
-            "size-3.5 shrink-0",
-            diff === 0 ? "text-muted-foreground" : diff > 0 ? "text-success" : "text-critical",
-          )}
-          aria-hidden
-        />
-        <span className="tabular-nums">
-          {diff > 0 ? "+" : ""}
-          {diff}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+        <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+          <DiffIcon
+            className={cn(
+              "size-3.5 shrink-0",
+              diff === 0 ? "text-muted-foreground" : diff > 0 ? "text-success" : "text-critical",
+            )}
+            aria-hidden
+          />
+          <Iso className="tabular-nums">
+            {diff > 0 ? "+" : ""}
+            {diff}
+          </Iso>
+          <span className="truncate">
+            {kpi.comparison.kind === "previous" ? (
+              t("kpi.vsPrevious")
+            ) : (
+              <>
+                {t("kpi.target")} <Iso className="tabular-nums">{kpi.comparison.value}%</Iso>
+              </>
+            )}
+          </span>
         </span>
-        <span className="truncate">
-          {kpi.comparison.kind === "previous"
-            ? t("kpi.vsPrevious")
-            : `${t("kpi.target")} ${kpi.comparison.value}%`}
+        <span className="w-16 shrink-0">
+          <Sparkline values={kpi.trend.map((p) => p.value)} status={kpi.status} />
         </span>
       </div>
 
-      <Sparkline values={kpi.trend.map((p) => p.value)} status={kpi.status} />
+      <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">
+        {t(kpi.explanationKey as TKey)}
+      </p>
 
-      <p className="text-xs leading-relaxed text-muted-foreground">{t(kpi.explanationKey as TKey)}</p>
-
-      <span className="mt-auto inline-flex items-center gap-1 text-xs font-medium text-azure">
+      <span className="mt-auto inline-flex items-center gap-1 pt-0.5 text-xs font-medium text-azure">
         {t("kpi.openDetails")}
         <ChevronLeft className="size-3.5 ltr:rotate-180" aria-hidden />
       </span>
@@ -124,19 +150,32 @@ export function KpiGrid({ kpis, loading }: { kpis: KpiMetric[]; loading?: boolea
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-52 w-full rounded-lg" />
+          <Skeleton key={i} className="h-40 w-full rounded-lg" />
         ))}
       </div>
     );
   }
 
+  if (kpis.length === 0) {
+    return (
+      <SectionCard title={t("kpi.confidence")}>
+        <EmptyBlock />
+      </SectionCard>
+    );
+  }
+
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {kpis.map((kpi) => (
-          <KpiCard key={kpi.id} kpi={kpi} onOpen={() => setSelected(kpi)} />
+          <KpiCard
+            key={kpi.id}
+            kpi={kpi}
+            primary={kpi.id === "confidence"}
+            onOpen={() => setSelected(kpi)}
+          />
         ))}
       </div>
 
@@ -160,7 +199,9 @@ export function KpiGrid({ kpis, loading }: { kpis: KpiMetric[]; loading?: boolea
                   <span className="text-4xl font-semibold tabular-nums text-foreground">
                     {formatValue(selected)}
                   </span>
-                  <StatusPill status={selected.status}>{t(statusKey[selected.status])}</StatusPill>
+                  <StatusPill status={selected.id === "expected" ? "healthy" : selected.status}>
+                    {selected.id === "expected" ? t("status.onTrack") : t(statusKey[selected.status])}
+                  </StatusPill>
                 </div>
 
                 <div>
@@ -211,7 +252,7 @@ export function KpiGrid({ kpis, loading }: { kpis: KpiMetric[]; loading?: boolea
                           key={item.id}
                           className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border bg-surface px-3 py-2"
                         >
-                          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">#{item.id}</span>
+                          <Iso className="shrink-0 text-xs tabular-nums text-muted-foreground">#{item.id}</Iso>
                           <span className="min-w-0 truncate text-sm text-foreground">{item.title[locale]}</span>
                           <span className="shrink-0 text-[11px] text-muted-foreground">{item.state[locale]}</span>
                         </li>

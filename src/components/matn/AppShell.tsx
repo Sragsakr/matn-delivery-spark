@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Activity,
+  Building2,
   ChevronsLeft,
   ChevronsRight,
   CircleUserRound,
@@ -20,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,8 +39,8 @@ import {
 } from "@/components/ui/select";
 import { useI18n, type TKey } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
-import { useWorkspace } from "@/data/workspace";
-import { statusDot } from "./primitives";
+import { isDevPreview, useWorkspace, type PreviewState } from "@/data/workspace";
+import { Iso, statusDot } from "./primitives";
 import type { DataFreshness, WorkspaceFilters } from "@/data/types";
 
 const navItems = [
@@ -71,21 +73,22 @@ function BrandMark({ compact }: { compact?: boolean }) {
 }
 
 function NavList({ compact, onNavigate }: { compact?: boolean; onNavigate?: () => void }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const tipSide = locale === "ar" ? "left" : "right";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   return (
     <nav className="flex flex-col gap-1 px-2" aria-label={t("shell.menu")}>
       {navItems.map((item) => {
         const active = pathname === item.to;
         const Icon = item.icon;
-        return (
+        const link = (
           <Link
             key={item.to}
             to={item.to}
             onClick={onNavigate}
-            title={compact ? t(item.key as TKey) : undefined}
+            aria-label={compact ? t(item.key as TKey) : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              "flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors motion-reduce:transition-none",
               compact && "justify-center px-2",
               active
                 ? "bg-navy text-navy-foreground"
@@ -95,6 +98,13 @@ function NavList({ compact, onNavigate }: { compact?: boolean; onNavigate?: () =
             <Icon className="size-4 shrink-0" aria-hidden />
             {!compact && <span className="truncate">{t(item.key as TKey)}</span>}
           </Link>
+        );
+        if (!compact) return link;
+        return (
+          <Tooltip key={item.to}>
+            <TooltipTrigger asChild>{link}</TooltipTrigger>
+            <TooltipContent side={tipSide}>{t(item.key as TKey)}</TooltipContent>
+          </Tooltip>
         );
       })}
     </nav>
@@ -117,12 +127,12 @@ function FilterSelect({
   return (
     <label className="block min-w-0">
       {!compact && (
-        <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
           {t(labelKey)}
         </span>
       )}
       <Select value={filters[filterKey]} onValueChange={(v) => setFilter(filterKey, v)}>
-        <SelectTrigger className="h-9 w-full bg-card text-sm" aria-label={t(labelKey)}>
+        <SelectTrigger className="h-8 w-full bg-card text-[13px]" aria-label={t(labelKey)}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -140,12 +150,83 @@ function FilterSelect({
 function ScopeFilters({ compact }: { compact?: boolean }) {
   const { options } = useWorkspace();
   return (
-    <div className={cn("grid gap-3", compact ? "grid-cols-1" : "grid-cols-1")}>
+    <div className={cn("grid gap-1.5", compact ? "grid-cols-2" : "grid-cols-1")}>
       <FilterSelect labelKey="shell.organization" filterKey="organizationId" items={options.organizations} />
       <FilterSelect labelKey="shell.project" filterKey="projectId" items={options.projects} />
       <FilterSelect labelKey="shell.team" filterKey="teamId" items={options.teams} />
       <FilterSelect labelKey="shell.sprint" filterKey="iterationId" items={options.iterations} />
     </div>
+  );
+}
+
+function useScopeLabels() {
+  const { locale } = useI18n();
+  const { filters, options } = useWorkspace();
+  const pick = (list: { id: string; name: { ar: string; en: string } }[], id: string) =>
+    list.find((x) => x.id === id)?.name[locale] ?? "—";
+  return {
+    organization: pick(options.organizations, filters.organizationId),
+    project: pick(options.projects, filters.projectId),
+    team: pick(options.teams, filters.teamId),
+    sprint: pick(options.iterations, filters.iterationId),
+  };
+}
+
+/** Collapsed-sidebar workspace context: icon trigger plus a descriptive tooltip. */
+function CollapsedScope({ onExpand }: { onExpand: () => void }) {
+  const { t, locale } = useI18n();
+  const tipSide = locale === "ar" ? "left" : "right";
+  const scope = useScopeLabels();
+  const label = `${t("shell.project")}: ${scope.project} · ${t("shell.sprint")}: ${scope.sprint}`;
+  return (
+    <div className="border-b border-sidebar-border px-2 py-2">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="min-h-11 w-full"
+            aria-label={`${t("brand.workspace")} — ${label}`}
+            onClick={onExpand}
+          >
+            <Building2 className="size-4" aria-hidden />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side={tipSide} className="max-w-56 text-xs">
+          <span className="block font-medium">{t("brand.workspace")}</span>
+          <span className="block">{t("shell.organization")}: {scope.organization}</span>
+          <span className="block">{t("shell.project")}: {scope.project}</span>
+          <span className="block">{t("shell.team")}: {scope.team}</span>
+          <span className="block">{t("shell.sprint")}: {scope.sprint}</span>
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
+
+/** Development-only interface state preview. Never rendered in production. */
+function StatePreviewSelect() {
+  const { t } = useI18n();
+  const { previewState, setPreviewState } = useWorkspace();
+  if (!isDevPreview) return null;
+  const states: PreviewState[] = ["normal", "loading", "empty", "error", "stale", "partial"];
+  return (
+    <Select value={previewState} onValueChange={(v) => setPreviewState(v as PreviewState)}>
+      <SelectTrigger
+        className="h-8 w-[130px] border-dashed bg-card text-xs"
+        aria-label={`${t("dev.state")} — ${t("dev.only")}`}
+        title={t("dev.only")}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {states.map((st) => (
+          <SelectItem key={st} value={st} className="text-xs">
+            {t(`dev.state.${st}` as TKey)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -180,6 +261,9 @@ function TopBar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
+          <div className="hidden sm:block">
+            <StatePreviewSelect />
+          </div>
           <Button
             variant="ghost"
             size="icon"
@@ -257,9 +341,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             <BrandMark compact={collapsed} />
           </div>
 
-          {!collapsed && (
-            <div className="border-b border-sidebar-border px-4 py-3">
-              <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {collapsed ? (
+            <CollapsedScope onExpand={() => setCollapsed(false)} />
+          ) : (
+            <div className="border-b border-sidebar-border px-3 py-2.5">
+              <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 {t("brand.workspace")}
               </p>
               <ScopeFilters />
@@ -300,16 +386,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="py-3">
               <NavList onNavigate={() => setMobileOpen(false)} />
             </div>
+            <div className="px-4 pb-4 sm:hidden">
+              <StatePreviewSelect />
+            </div>
           </SheetContent>
         </Sheet>
 
         <div className="flex min-w-0 flex-1 flex-col">
           <TopBar onOpenMobileNav={() => setMobileOpen(true)} />
-          <div className="border-b border-border bg-surface px-4 py-3 lg:hidden">
-            <div className="grid grid-cols-2 gap-2">
-              <ScopeFilters compact />
-            </div>
-          </div>
           <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6">{children}</main>
         </div>
       </div>

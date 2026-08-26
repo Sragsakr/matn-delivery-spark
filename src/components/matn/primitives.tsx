@@ -164,3 +164,15 @@ export function Notice({
     </div>
   );
 }
+
+/**
+ * Direction isolation for names, IDs, percentages and technical terms so they
+ * never break the surrounding Arabic (RTL) sentence flow.
+ */
+export function Iso({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <bdi className={cn("inline-block", className)} dir="auto">
+      {children}
+    </bdi>
+  );
+}
