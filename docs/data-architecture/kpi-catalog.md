@@ -1,6 +1,13 @@
 # KPI Catalog
 
-Every KPI is defined as data (`KpiDefinition`, `src/types/domain/kpi.ts`). Thresholds below are **proposed defaults** and are configurable per tenant/team. Every value carries a `calculationVersion` so historical numbers stay explainable.
+Every KPI is defined as data. Since Phase 2.1 the catalog is split in two:
+
+- `an_kpi_definitions` (`KpiDefinition`) — **global and immutable per version**: `kpiId` unique globally, Arabic and English names, formula, required inputs, default display format, default thresholds and weight, `calculationVersion`. Not tenant-scoped.
+- `an_kpi_configuration_overrides` (`KpiConfigurationOverride`) — tenant-owned thresholds, weights, display format and enablement, optionally narrowed to a project or a team, with `effectiveFrom/effectiveTo`, `changedByUserId` and `changeReason`.
+
+Resolution order at calculation time: **team override → project override → tenant override → global default**. The winning configuration is materialized as `ResolvedKpiConfiguration` and stored on every `KpiValue` (`resolvedConfiguration`, `configurationVersion`), so a historical number can always be re-explained with the exact thresholds and weights that produced it — even after they change.
+
+Thresholds below are the **global defaults**.
 
 Conventions used in the tables:
 

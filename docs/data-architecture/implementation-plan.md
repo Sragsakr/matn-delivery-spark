@@ -19,7 +19,8 @@ Phase 2 stops at specification. Nothing below is executed until a human approves
 ### ADR-003: Server-side integration layer for Azure DevOps
 - **Context**: PATs and OAuth tokens must never reach the browser; syncs are long-running and scheduled.
 - **Decision**: Run all Azure DevOps access server-side. On this TanStack Start stack that means `createServerFn` for app-internal calls and server routes under `src/routes/api/public/*` for scheduled/cron triggers — no Supabase Edge Functions.
-- **Consequences**: Secrets stay in backend configuration; scheduling uses pg_cron calling an authenticated public route; workers must respect Worker runtime limits (bounded batch sizes, resumable runs).
+- **Consequences**: Secrets stay in backend configuration; workers must respect Worker runtime limits (bounded batch sizes, resumable runs).
+- **Scheduling (revised in Phase 2.1)**: the trigger route is `POST`-only and authenticated with an HMAC-SHA256 signature over `timestamp.nonce.idempotencyKey.body`, with a `keyId` for rotation, a configurable clock-skew window, nonce replay rejection, per-organization rate limiting, one active sync lock per organization, a maximum execution duration with resumable batches, and audit records for accepted **and** rejected triggers. The signing secret lives only in the encrypted secret store — never in migration SQL, seeds or the database. If pg_cron cannot retrieve that secret securely on the chosen host, an **external scheduler is the preferred alternative**; the choice is deferred until the production hosting target is known. Errors never echo Azure credentials, and no client-side code references the route.
 - **Alternatives**: Client-side calls (unacceptable, leaks credentials), Supabase Edge Functions (not used on this stack), a separate container service (extra operations for no current benefit).
 
 ### ADR-004: REST API before runtime MCP
@@ -52,6 +53,17 @@ Phase 2 stops at specification. Nothing below is executed until a human approves
 - **Consequences**: Zero risk of corrupting customer work items; recommendations remain advisory; write-back becomes a separate, gated project.
 - **Alternatives**: Immediate write-back (rejected), agent-driven changes (rejected — no confirmation, audit or verification path yet).
 
+### ADR-009: Phase 2.1 architecture corrections
+- **Context**: Review of the Phase 2 specification found five structural gaps: tenant foreign keys were declared composite without candidate keys, iterations conflated the Azure node with team configuration, project/team-limited roles had no storage, the scheduler's secret custody was unspecified, and source deletion was indistinguishable from lost access.
+- **Decision**:
+  1. **Composite tenant integrity** — every tenant-owned parent declares `UNIQUE (tenant_id, id)`; every tenant-owned child references `(tenant_id, parent_id)`. Cross-tenant rows fail on a foreign key, before RLS. A CI invariant test asserts each composite FK has a matching candidate key.
+  2. **Team-iteration separation** — `core_iterations` stores one Azure node per project; `core_team_iterations` stores each team's subscription plus time zone, working weekdays, days off, `isCurrent` and `selectedForSync`. Calendars, capacity, iteration snapshots and iteration-scoped KPI values key on `teamIterationId`.
+  3. **Authorization scopes** — `core_user_project_scopes` and `core_user_team_scopes` with `grantedByUserId`, `grantedAt`, `expiresAt`, `revokedAt`, active-only partial unique indexes, resolved by security-definer functions. Frontend filters are never an authorization mechanism.
+  4. **Secure scheduler boundary** — signed, replay-protected, rate-limited `POST` trigger with secret-store custody, sync locks and full audit; scheduler technology deferred pending the hosting target.
+  5. **Source deletion semantics** — `SourceTracked` lifecycle columns; `404` tombstones only after a second verification, `403` means access revoked; revisions, snapshots and audit history are never deleted; KPIs exclude tombstoned items forward from the effective date; ambiguity raises a data-quality issue.
+- **Consequences**: More constraints and one extra join for team-scoped iteration data; in exchange, cross-tenant contamination becomes structurally impossible, multi-team sprints stop duplicating nodes, least-privilege access is representable, and history stays trustworthy through deletions and permission loss.
+- **Alternatives**: Rely on RLS alone (rejected — a service-role bug bypasses it), keep per-team iteration duplicates (rejected — divergent dates), roles without scope tables (rejected — cannot express Delivery Manager or Read-only Viewer), unauthenticated cron route behind an obscure path (rejected).
+
 ## Phase 3 — Database foundation
 
 - **Inputs**: approved `database-blueprint.md`, `domain-model.md`, `security-and-access.md`.
@@ -60,7 +72,7 @@ Phase 2 stops at specification. Nothing below is executed until a human approves
 - **Acceptance**: every public table has GRANT + RLS + at least one policy; no table stores roles on a profile; cross-tenant read attempt returns zero rows in tests; types compile.
 - **Rollback**: migrations are additive and reversible per group; drop the newest group and restore generated types.
 - **Security checks**: linter clean; no `anon` grants on tenant tables; immutable tables deny UPDATE/DELETE except `service_role`.
-- **Tests**: policy tests per role, uniqueness/constraint tests, seed integrity test.
+- **Tests**: policy tests per role, uniqueness/constraint tests, seed integrity test, **cross-tenant insert tests that expect `23503` foreign-key violations (not merely empty RLS results)**, a schema invariant test asserting every composite FK has a matching `UNIQUE (tenant_id, id)`, and scope-resolution tests for project/team-limited roles.
 
 ## Phase 4 — Azure DevOps connection (read-only)
 
@@ -122,3 +134,7 @@ Phase 2 stops at specification. Nothing below is executed until a human approves
 6. Retention: is 3 years of revisions and snapshots acceptable, or is a shorter window required?
 7. Which release gates apply, and who signs business acceptance?
 8. Working week and holiday calendar per team (default Sun–Thu, `Africa/Cairo`)?
+9. Production hosting target, which decides whether pg_cron or an external scheduler holds the HMAC signing key.
+10. Snapshot local run time per tenant (default `00:05`) and the automatic backfill window (default 14 days).
+11. Confirmation of the retention defaults and of who may declare a legal hold.
+12. Which roles may grant project/team scopes, and the default expiry for a temporary grant.
