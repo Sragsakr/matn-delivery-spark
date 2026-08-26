@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,8 +38,8 @@ import {
 } from "@/components/ui/select";
 import { useI18n, type TKey } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
-import { useWorkspace } from "@/data/workspace";
-import { statusDot } from "./primitives";
+import { isDevPreview, useWorkspace, type PreviewState } from "@/data/workspace";
+import { Iso, statusDot } from "./primitives";
 import type { DataFreshness, WorkspaceFilters } from "@/data/types";
 
 const navItems = [
@@ -78,14 +79,14 @@ function NavList({ compact, onNavigate }: { compact?: boolean; onNavigate?: () =
       {navItems.map((item) => {
         const active = pathname === item.to;
         const Icon = item.icon;
-        return (
+        const link = (
           <Link
             key={item.to}
             to={item.to}
             onClick={onNavigate}
-            title={compact ? t(item.key as TKey) : undefined}
+            aria-label={compact ? t(item.key as TKey) : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+              "flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors motion-reduce:transition-none",
               compact && "justify-center px-2",
               active
                 ? "bg-navy text-navy-foreground"
@@ -95,6 +96,13 @@ function NavList({ compact, onNavigate }: { compact?: boolean; onNavigate?: () =
             <Icon className="size-4 shrink-0" aria-hidden />
             {!compact && <span className="truncate">{t(item.key as TKey)}</span>}
           </Link>
+        );
+        if (!compact) return link;
+        return (
+          <Tooltip key={item.to}>
+            <TooltipTrigger asChild>{link}</TooltipTrigger>
+            <TooltipContent side="inline-end">{t(item.key as TKey)}</TooltipContent>
+          </Tooltip>
         );
       })}
     </nav>
@@ -117,12 +125,12 @@ function FilterSelect({
   return (
     <label className="block min-w-0">
       {!compact && (
-        <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
           {t(labelKey)}
         </span>
       )}
       <Select value={filters[filterKey]} onValueChange={(v) => setFilter(filterKey, v)}>
-        <SelectTrigger className="h-9 w-full bg-card text-sm" aria-label={t(labelKey)}>
+        <SelectTrigger className="h-8 w-full bg-card text-[13px]" aria-label={t(labelKey)}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -140,7 +148,7 @@ function FilterSelect({
 function ScopeFilters({ compact }: { compact?: boolean }) {
   const { options } = useWorkspace();
   return (
-    <div className={cn("grid gap-3", compact ? "grid-cols-1" : "grid-cols-1")}>
+    <div className={cn("grid gap-1.5", compact ? "grid-cols-2" : "grid-cols-1")}>
       <FilterSelect labelKey="shell.organization" filterKey="organizationId" items={options.organizations} />
       <FilterSelect labelKey="shell.project" filterKey="projectId" items={options.projects} />
       <FilterSelect labelKey="shell.team" filterKey="teamId" items={options.teams} />
