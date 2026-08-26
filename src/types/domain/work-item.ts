@@ -1,6 +1,4 @@
-import type {
-  CustomFields, IsoTimestamp, RecordMeta, Severity, TenantScoped, Uuid,
-} from "./common";
+import type { CustomFields, IsoTimestamp, RecordMeta, Severity, SourceTracked, TenantScoped, Uuid } from "./common";
 
 /** Normalized type alias; custom types resolve through ProcessMapping. */
 export type WorkItemAlias =
@@ -14,7 +12,7 @@ export type WorkItemRelationType =
   | "parent" | "child" | "related" | "predecessor" | "successor"
   | "duplicate" | "duplicateOf" | "testedBy" | "tests" | "affects" | "other";
 
-export interface WorkItemRelation extends TenantScoped, RecordMeta {
+export interface WorkItemRelation extends TenantScoped, RecordMeta, SourceTracked {
   readonly id: Uuid;
   readonly sourceWorkItemId: Uuid;
   /** Null when the target lives outside the synced scope (e.g. another project). */
@@ -27,7 +25,7 @@ export interface WorkItemRelation extends TenantScoped, RecordMeta {
 }
 
 /** Normalized current state of an Azure work item. */
-export interface WorkItem extends TenantScoped, RecordMeta {
+export interface WorkItem extends TenantScoped, RecordMeta, SourceTracked {
   readonly id: Uuid;
   readonly organizationId: Uuid;
   readonly projectId: Uuid;

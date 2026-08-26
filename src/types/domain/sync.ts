@@ -75,6 +75,23 @@ export interface SyncCursor extends TenantScoped, RecordMeta {
   readonly overlapMinutes: number;
 }
 
+/**
+ * How a sync run reacted to an item that vanished from the source.
+ * 404 alone is never enough: a second verification pass is required, and 403
+ * is always treated as revoked access, never as deletion.
+ */
+export interface SourceDisappearanceOutcome {
+  readonly entityKind: SyncEntityKind;
+  readonly azureId: string;
+  readonly entityId: Uuid | null;
+  readonly httpStatus: 403 | 404 | null;
+  readonly action: "tombstoned" | "marked_inaccessible" | "awaiting_verification" | "restored" | "issue_raised";
+  readonly verificationPass: 1 | 2;
+  readonly effectiveAt: IsoTimestamp;
+  /** History (revisions, snapshots, audit) is never deleted, only excluded forward. */
+  readonly historyPreserved: true;
+}
+
 export type DataQualitySeverity = "critical" | "warning" | "info";
 
 export type DataQualityRuleId =
@@ -82,6 +99,8 @@ export type DataQualityRuleId =
   | "missing_owner" | "invalid_iteration_dates" | "finish_before_start" | "duplicate_azure_id"
   | "broken_parent_relation" | "cross_project_child" | "unknown_identity" | "negative_capacity"
   | "revision_gap" | "estimate_change_without_revision" | "snapshot_gap"
+  | "deletion_vs_access_ambiguous" | "unverified_disappearance" | "access_revoked"
+  | "orphan_team_iteration" | "duplicate_active_scope" | "kpi_override_conflict"
   | "inconsistent_sprint_duration" | "kpi_input_missing" | "partial_synchronization";
 
 export interface DataQualityIssue extends TenantScoped {

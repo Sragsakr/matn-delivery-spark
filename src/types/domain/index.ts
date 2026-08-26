@@ -18,3 +18,5 @@ export * from "./kpi";
 export * from "./risk";
 export * from "./recommendation";
 export * from "./sync";
+export * from "./authorization";
+export * from "./scheduling";

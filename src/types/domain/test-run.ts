@@ -1,8 +1,8 @@
-import type { IsoTimestamp, RecordMeta, TenantScoped, Uuid } from "./common";
+import type { IsoTimestamp, RecordMeta, SourceTracked, TenantScoped, Uuid } from "./common";
 
 export type TestRunState = "notStarted" | "inProgress" | "completed" | "aborted" | "unknown";
 
-export interface TestRun extends TenantScoped, RecordMeta {
+export interface TestRun extends TenantScoped, RecordMeta, SourceTracked {
   readonly id: Uuid;
   readonly organizationId: Uuid;
   readonly projectId: Uuid;
