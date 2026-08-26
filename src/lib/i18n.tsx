@@ -124,6 +124,7 @@ export const dictionary = {
   "status.critical": { ar: "حرج", en: "Critical" },
   "status.neutral": { ar: "محايد", en: "Neutral" },
   "status.onTrack": { ar: "على المسار", en: "On track" },
+  "status.watch": { ar: "مراقبة", en: "Watch" },
 
   "trajectory.title": { ar: "مسار السبرنت", en: "Sprint Trajectory" },
   "trajectory.subtitle": {

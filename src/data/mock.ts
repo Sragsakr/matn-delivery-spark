@@ -388,7 +388,7 @@ const baseSnapshot: DeliverySnapshot = {
     },
     {
       id: "risk-5",
-      severity: "medium",
+      severity: "watch",
       title: { ar: "اعتماد خارجي على فريق البنية التحتية", en: "External dependency on the platform team" },
       explanation: {
         ar: "بيئة الاختبار المشتركة غير متاحة، والطلب معلّق منذ ثلاثة أيام.",
