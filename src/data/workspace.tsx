@@ -18,8 +18,14 @@ import {
 } from "./mock";
 import type { DeliverySnapshot, Iteration, WorkspaceFilters } from "./types";
 
+export type PreviewState = "normal" | "loading" | "empty" | "error" | "stale" | "partial";
+
+export const isDevPreview = import.meta.env.DEV;
+
 type Ctx = {
   filters: WorkspaceFilters;
+  previewState: PreviewState;
+  setPreviewState: (s: PreviewState) => void;
   setFilter: (key: keyof WorkspaceFilters, value: string) => void;
   snapshot: DeliverySnapshot | null;
   iteration: Iteration | undefined;
@@ -38,9 +44,12 @@ const WorkspaceContext = createContext<Ctx | null>(null);
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [filters, setFilters] = useState<WorkspaceFilters>(defaultFilters);
-  const [loading, setLoading] = useState(true);
-  const [error] = useState(false);
+  const [baseLoading, setLoading] = useState(true);
   const [tick, setTick] = useState(0);
+  const [previewState, setPreviewState] = useState<PreviewState>("normal");
+
+  const loading = previewState === "loading" || baseLoading;
+  const error = previewState === "error";
 
   // Mock async read. Replaced by a server function in the integration phase.
   useEffect(() => {
@@ -68,14 +77,29 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const snapshot = useMemo(
-    () => (loading || error ? null : getDeliverySnapshot(filters)),
-    [filters, loading, error],
-  );
+  const snapshot = useMemo(() => {
+    if (loading || error) return null;
+    const base = getDeliverySnapshot(filters);
+    if (previewState === "empty") {
+      return {
+        ...base,
+        kpis: [],
+        risks: [],
+        funnel: [],
+        teamLoad: [],
+        actions: [],
+      };
+    }
+    if (previewState === "stale") return { ...base, freshness: "stale" as const, lastSyncMinutesAgo: 96 };
+    if (previewState === "partial") return { ...base, freshness: "partial" as const, actions: base.actions.slice(0, 1) };
+    return base;
+  }, [filters, loading, error, previewState]);
 
   const value = useMemo<Ctx>(
     () => ({
       filters,
+      previewState,
+      setPreviewState,
       setFilter,
       snapshot,
       iteration: getIteration(filters.iterationId),
@@ -89,7 +113,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         iterations: iterations.filter((i) => i.teamId === filters.teamId),
       },
     }),
-    [filters, setFilter, snapshot, loading, error],
+    [filters, setFilter, snapshot, loading, error, previewState],
   );
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
