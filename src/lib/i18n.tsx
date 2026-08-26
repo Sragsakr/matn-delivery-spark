@@ -75,7 +75,7 @@ export const dictionary = {
     ar: "الإنجاز متأخر ١١ نقطة عن المسار المتوقع لليوم السابع.",
     en: "Delivery is 11 points behind the expected line for day 7.",
   },
-  "kpi.expected": { ar: "الإنجاز المتوقع اليوم", en: "Expected Completion" },
+  "kpi.expected": { ar: "الإنجاز المتوقّع اليوم", en: "Expected Completion" },
   "kpi.expected.help": {
     ar: "النسبة التي كان يفترض بلوغها في هذا اليوم من السبرنت.",
     en: "The completion level the sprint should have reached by today.",
@@ -123,6 +123,7 @@ export const dictionary = {
   "status.atRisk": { ar: "معرّض للخطر", en: "At risk" },
   "status.critical": { ar: "حرج", en: "Critical" },
   "status.neutral": { ar: "محايد", en: "Neutral" },
+  "status.onTrack": { ar: "على المسار", en: "On track" },
 
   "trajectory.title": { ar: "مسار السبرنت", en: "Sprint Trajectory" },
   "trajectory.subtitle": {
@@ -147,6 +148,11 @@ export const dictionary = {
   "risks.why": { ar: "سبب الخطر", en: "Why this is a risk" },
   "risks.action": { ar: "الإجراء الموصى به", en: "Recommended action" },
   "risks.openAdo": { ar: "فتح في Azure DevOps", en: "Open in Azure DevOps" },
+  "risks.adoDisabled": {
+    ar: "سيتاح بعد ربط Azure DevOps",
+    en: "Available after Azure DevOps is connected",
+  },
+  "risks.viewAll": { ar: "عرض كل المخاطر", en: "View all risks" },
   "risks.adoSoon": {
     ar: "الربط مع Azure DevOps يفعّل هذا الرابط لاحقاً.",
     en: "This link activates once Azure DevOps is connected.",
@@ -197,11 +203,15 @@ export const dictionary = {
   "actions.impact": { ar: "الأثر المتوقع", en: "Expected impact" },
   "actions.reason": { ar: "السبب", en: "Reason" },
   "actions.items": { ar: "عناصر مرتبطة", en: "Related items" },
-  "actions.accept": { ar: "اعتماد", en: "Accept" },
-  "actions.dismiss": { ar: "تجاهل", en: "Dismiss" },
-  "actions.inspect": { ar: "فحص", en: "Inspect" },
-  "actions.accepted": { ar: "تم اعتماد الإجراء", en: "Action accepted" },
-  "actions.dismissed": { ar: "تم تجاهل الإجراء", en: "Action dismissed" },
+  "actions.accept": { ar: "إضافة إلى خطة اليوم", en: "Add to today’s plan" },
+  "actions.dismiss": { ar: "إخفاء الاقتراح", en: "Hide suggestion" },
+  "actions.inspect": { ar: "فحص التفاصيل", en: "Inspect details" },
+  "actions.accepted": { ar: "أُضيف الاقتراح إلى خطة اليوم", en: "Added to today’s plan" },
+  "actions.dismissed": { ar: "أُخفي الاقتراح", en: "Suggestion hidden" },
+  "actions.notSynced": {
+    ar: "التغيير محفوظ محلياً فقط ولم يُزامن مع Azure DevOps بعد.",
+    en: "Saved locally only; not yet synchronized with Azure DevOps.",
+  },
   "actions.empty": { ar: "لا توجد إجراءات معلّقة الآن.", en: "No pending actions right now." },
   "actions.priority": { ar: "الأولوية {a}", en: "Priority {a}" },
 
@@ -259,6 +269,24 @@ export const dictionary = {
   "intel.p1": { ar: "تفسير أسباب تعثّر السبرنت", en: "Root-cause explanation for sprint slippage" },
   "intel.p2": { ar: "سيناريوهات ماذا لو", en: "What-if scenarios" },
   "intel.p3": { ar: "مساعد التسليم بالحوار", en: "Conversational delivery copilot" },
+
+  "kpi.primary": { ar: "المؤشّر الرئيسي", en: "Primary KPI" },
+
+  "trajectory.summary": {
+    ar: "في اليوم {a} من {b}: الإنجاز الفعلي {c}% مقابل خط متوقّع عند {d}%، والإغلاق المتوقّع {e}% ضمن نطاق ثقة من {f}% إلى {g}%.",
+    en: "Day {a} of {b}: actual completion {c}% against an expected line of {d}%; forecast close {e}% within a confidence range of {f}% to {g}%.",
+  },
+  "trajectory.today": { ar: "اليوم الحالي", en: "Today" },
+  "trajectory.chartLabel": { ar: "رسم بياني لمسار السبرنت", en: "Sprint trajectory chart" },
+
+  "dev.state": { ar: "حالة العرض", en: "Interface state" },
+  "dev.state.normal": { ar: "عادي", en: "Normal" },
+  "dev.state.loading": { ar: "تحميل", en: "Loading" },
+  "dev.state.empty": { ar: "فارغ", en: "Empty" },
+  "dev.state.error": { ar: "خطأ", en: "Error" },
+  "dev.state.stale": { ar: "بيانات قديمة", en: "Stale data" },
+  "dev.state.partial": { ar: "بيانات جزئية", en: "Partial data" },
+  "dev.only": { ar: "أداة تطوير فقط", en: "Development tool only" },
 
   "common.close": { ar: "إغلاق", en: "Close" },
   "common.viewAll": { ar: "عرض الكل", en: "View all" },
