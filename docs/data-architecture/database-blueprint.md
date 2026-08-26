@@ -35,7 +35,7 @@ Conventions: PK `id uuid default gen_random_uuid()`; every customer table has `t
 | `core_members` | identities | id | tenant, org | `(tenant_id, organization_id, azure_descriptor)` | org | tenant+org | mutable | indefinite | 10²–10³ | Azure |
 | `core_team_memberships` | membership history | id | tenant, team, member | `(tenant_id, team_id, member_id, joined_at)` | team, member | tenant+team | append + close | indefinite | 10³ | Azure |
 | `core_iterations` | Azure iteration **nodes**, project-owned, never duplicated per team | id | tenant, org, project | `(tenant_id, id)`, `(tenant_id, project_id, azure_iteration_id)` | `(tenant_id, project_id, start_date)` | tenant+project | mutable | indefinite | 10²–10³ | Azure |
-| `core_team_iterations` | a team's subscription + team-specific settings | id | tenant, team, iteration | `(tenant_id, id)`, `(tenant_id, team_id, iteration_id)`, partial `(tenant_id, team_id) WHERE is_current` | `(tenant_id, iteration_id)`, `selected_for_sync` | tenant+team | mutable | indefinite | 10³ | Azure + MATN |
+| `core_team_iterations` | a team's subscription + team-specific settings (carries immutable `project_id`) | id | tenant, project, team, iteration | `(tenant_id, id)`, `(tenant_id, team_id, iteration_id)`, partial `(tenant_id, team_id) WHERE is_current` | `(tenant_id, iteration_id)`, `selected_for_sync` | tenant+team | mutable | indefinite | 10³ | Azure + MATN |
 | `core_member_capacity` | capacity config | id | tenant, team_iteration, member | `(tenant_id, id)`, `(tenant_id, team_iteration_id, member_id)` | team_iteration | tenant+team | mutable | 3 years | 10⁴ | Azure |
 | `core_user_project_scopes` | explicit project grants | id | tenant, user, project, granted_by user | `(tenant_id, id)`, partial `(tenant_id, user_id, project_id) WHERE revoked_at IS NULL` | user | tenant | mutable | indefinite | 10³ | MATN |
 | `core_user_team_scopes` | explicit team grants | id | tenant, user, team, granted_by user | `(tenant_id, id)`, partial `(tenant_id, user_id, team_id) WHERE revoked_at IS NULL` | user | tenant | mutable | indefinite | 10³ | MATN |
@@ -115,9 +115,9 @@ FOREIGN KEY (tenant_id, project_id) REFERENCES public.core_projects (tenant_id, 
 -- core_iterations
 FOREIGN KEY (tenant_id, organization_id) REFERENCES public.core_organizations (tenant_id, id)
 FOREIGN KEY (tenant_id, project_id)      REFERENCES public.core_projects      (tenant_id, id)
--- core_team_iterations
-FOREIGN KEY (tenant_id, team_id)      REFERENCES public.core_teams      (tenant_id, id) ON DELETE CASCADE
-FOREIGN KEY (tenant_id, iteration_id) REFERENCES public.core_iterations (tenant_id, id) ON DELETE CASCADE
+-- core_team_iterations (project-composite; see "Same-project structural integrity")
+FOREIGN KEY (tenant_id, project_id, team_id)      REFERENCES public.core_teams      (tenant_id, project_id, id) ON DELETE CASCADE
+FOREIGN KEY (tenant_id, project_id, iteration_id) REFERENCES public.core_iterations (tenant_id, project_id, id) ON DELETE CASCADE
 -- core_member_capacity
 FOREIGN KEY (tenant_id, team_iteration_id) REFERENCES public.core_team_iterations (tenant_id, id) ON DELETE CASCADE
 FOREIGN KEY (tenant_id, member_id)         REFERENCES public.core_members         (tenant_id, id)
@@ -126,10 +126,11 @@ FOREIGN KEY (tenant_id, user_id)            REFERENCES public.core_users (tenant
 FOREIGN KEY (tenant_id, granted_by_user_id) REFERENCES public.core_users (tenant_id, id)
 FOREIGN KEY (tenant_id, project_id)         REFERENCES public.core_projects (tenant_id, id) ON DELETE CASCADE
 FOREIGN KEY (tenant_id, team_id)            REFERENCES public.core_teams    (tenant_id, id) ON DELETE CASCADE
--- az_work_items
-FOREIGN KEY (tenant_id, project_id)   REFERENCES public.core_projects   (tenant_id, id)
-FOREIGN KEY (tenant_id, iteration_id) REFERENCES public.core_iterations (tenant_id, id)
-FOREIGN KEY (tenant_id, team_id)      REFERENCES public.core_teams      (tenant_id, id)
+-- az_work_items (project-composite)
+FOREIGN KEY (tenant_id, project_id)                REFERENCES public.core_projects        (tenant_id, id)
+FOREIGN KEY (tenant_id, project_id, iteration_id)  REFERENCES public.core_iterations      (tenant_id, project_id, id)
+FOREIGN KEY (tenant_id, project_id, team_id)       REFERENCES public.core_teams           (tenant_id, project_id, id)
+FOREIGN KEY (tenant_id, project_id, team_iteration_id) REFERENCES public.core_team_iterations (tenant_id, project_id, id)
 -- an_kpi_values / an_daily_* / intel_* / ops_* follow the same pattern
 -- an_kpi_configuration_overrides
 FOREIGN KEY (kpi_definition_id) REFERENCES public.an_kpi_definitions (id)   -- global table, no tenant column

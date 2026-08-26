@@ -32,7 +32,7 @@ Legend — PK: internal UUID unless stated. AzureID: source identifier. Owner: t
 | TeamIteration | `id` | — | tenant+team | Team, Iteration | snapshots, capacity, calendar | teamId, iterationId, timeZone, workingWeekdays | teamDaysOff, selectedForSync | normalized | daily | indefinite |
 | TeamMember | `id` | `azureDescriptor` | tenant+org | Organization | memberships, capacity, assignments | displayName, azureDescriptor | email, uniqueName, avatarUrl, role | normalized | daily | indefinite |
 | TeamMembership | `id` | — | tenant+team | Team, TeamMember | — | teamId, memberId | joinedAt, leftAt | history | daily | indefinite |
-| MemberCapacity | `id` | — | tenant+team | TeamIteration, TeamMember | — | teamId, iterationId, memberId | availableCapacityHours, availableWorkingDays | normalized | hourly | 3 years |
+| MemberCapacity | `id` | — | tenant+team | TeamIteration, TeamMember | — | teamIterationId, memberId | availableCapacityHours, availableWorkingDays | normalized | hourly | 3 years |
 | WorkItem | `id` | `System.Id` | tenant+project | Project, Iteration, parent WorkItem | children, revisions, relations | azureWorkItemId, azureRev, title, state | estimate, assignedTo, iterationId, dates | normalized | 15 min | indefinite |
 | WorkItemRelation | `id` | relation `rel`+url | tenant+project | WorkItem | — | sourceWorkItemId, targetAzureWorkItemId, relationType | targetWorkItemId | normalized | 15 min | indefinite |
 | WorkItemRevision | `id` | `System.Rev` | tenant+project | WorkItem | — | workItemId, rev, revisedAt | revisedByMemberId, estimate | history | 15 min | 3 years min |
@@ -58,7 +58,7 @@ Legend — PK: internal UUID unless stated. AzureID: source identifier. Owner: t
 | Entity | PK | Azure ID | Owner | Parents | Children | Required | Nullable | Class | Freq | Retention |
 |---|---|---|---|---|---|---|---|---|---|---|
 | DailyProjectSnapshot | `id` | — | tenant+project | Project | — | snapshotDate, counts | rates | calculated | daily | 3 years |
-| DailyIterationSnapshot | `id` | — | tenant+team | TeamIteration | — | snapshotDate, scope fields | estimates when unconfigured | calculated | daily | 3 years |
+| DailyIterationSnapshot | `id` | — | tenant+team | TeamIteration | — | teamIterationId, snapshotDate, scope fields | estimates when unconfigured | calculated | daily | 3 years |
 | DailyTeamSnapshot | `id` | — | tenant+team | Team | — | snapshotDate | capacity fields | calculated | daily | 3 years |
 | DailyMemberSnapshot | `id` | — | tenant+team | TeamMember, Team | — | snapshotDate | capacity fields | calculated | daily | 18 months |
 | KpiDefinition | `id` (KpiId) | — | global catalog | — | KpiValue | id, formula, thresholds | minimumHistoryDays | normalized (config) | on release | indefinite |
@@ -174,8 +174,12 @@ Project ──< Iteration (one Azure node, stored once)
                  │
 Team ──────< TeamIteration >──┘   (isCurrent, timeZone, workingWeekdays, selectedForSync)
                  │
-                 ├─< MemberCapacity
-                 ├─< DailyIterationSnapshot   unique (tenant_id, team_iteration_id, snapshot_date)
+                 ├─< MemberCapacity            key (tenant_id, team_iteration_id, member_id)
+                 ├─< DailyIterationSnapshot    key (tenant_id, team_iteration_id, snapshot_date)
+                 ├─< DailyTeamSnapshot         team_iteration_id nullable (no sprint that day)
+                 ├─< DailyMemberSnapshot       team_iteration_id nullable
+                 ├─< KpiValue / RiskSignal / Recommendation (sprint-scoped rows)
+                 ├─< MemberLoad (calculated)
                  └─< SprintCalendar (derived)
 ```
 
@@ -237,3 +241,13 @@ Grants are revoked (`revokedAt`) or expired (`expiresAt`), never deleted, so acc
 ## Source lifecycle
 
 Every Azure-sourced entity extends `SourceTracked`: `sourceStatus` (`active | deleted | inaccessible | unknown`), `isDeleted`, `deletedAtSource`, `lastSeenAt`, `accessRevokedAt`. Deletion and lost access are distinguishable at all times; history tables are never tombstoned.
+
+
+## Canonical team-sprint reference (Phase 2.2)
+
+`teamIterationId` is the **only** persisted team-sprint relationship. Contracts carrying it: `MemberCapacity`, `MemberLoad`, `DailyIterationSnapshot`, `DailyTeamSnapshot`, `DailyMemberSnapshot`, `KpiValue`, `RiskSignal`, `Recommendation`, `SprintCalendar`, and `DashboardContext`.
+
+- `teamId` and `iterationId` may still appear beside it, but only as **derived convenience values** — explicitly documented in the TypeScript contracts and never a foreign key of record in the database.
+- `DailyIterationSnapshot` identity is `(tenant_id, team_iteration_id, snapshot_date)`.
+- Team/member snapshots allow `teamIterationId = null` for days with no active sprint; when it is set, `iterationId` is derived from it.
+- Selecting a team and an iteration independently is no longer expressible: the pair must resolve to a `TeamIteration` row first, and that row is structurally constrained to a single project.

@@ -51,7 +51,19 @@ Roles alone are not sufficient: project- and team-limited roles resolve through 
 | QA & Release Owner | union of active rows in `core_user_project_scopes` |
 | Read-only Viewer | strictly the explicitly assigned project **and** team scope rows; no implicit inheritance |
 
-A scope row is *active* when `revoked_at IS NULL AND (expires_at IS NULL OR expires_at > now())`.
+A scope row is *active* when `revoked_at IS NULL AND (expires_at IS NULL OR expires_at > now())`. This predicate is mandatory in **every** authorization query; `revoked_at IS NULL` alone is never sufficient, because an expired row keeps `revoked_at NULL` until it is closed.
+
+Lifecycle (implemented by the proposed `grant_project_scope` / `grant_team_scope` security-definer functions, see database-blueprint.md):
+
+1. Take an advisory transaction lock on `(user, target)` so concurrent grants serialize.
+2. Close expired-but-open rows in the same transaction (`revoked_at = now()`).
+3. If an active grant already exists, return it — no second row, no error.
+4. Otherwise insert the new grant.
+5. Write an audit event for every outcome, keyed by the caller's idempotency key.
+
+The partial unique index stays on `revoked_at IS NULL`; correctness comes from closing expired rows before replacement rather than from widening the index (which cannot reference `now()`, being non-immutable). Access is denied the instant `expires_at` passes, with no dependency on a cleanup job.
+
+Authorization scopes also inherit the structural project rules: a team scope references a team that belongs to exactly one project, so a grant can never straddle projects.
 
 Phase 3 implements this with security-definer functions, all `STABLE` and `SET search_path = public`:
 
