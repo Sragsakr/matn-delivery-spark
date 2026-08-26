@@ -41,8 +41,7 @@ export function FunnelCard({ stages }: { stages: FunnelStage[] }) {
               </div>
               {stage.avgDays > 0 ? (
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                  {t("funnel.aging")}: <span className="tabular-nums">{stage.avgDays}</span>{" "}
-                  {t("risks.days", { a: "" }).replace("{a}", "").trim()}
+                  {t("funnel.aging")}: {t("risks.days", { a: stage.avgDays })}
                 </p>
               ) : (
                 <p className="mt-2 text-[11px] text-muted-foreground">&nbsp;</p>
