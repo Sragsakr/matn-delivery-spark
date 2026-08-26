@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DeliveryRouteImport } from './routes/delivery'
 import { Route as EngineeringRouteImport } from './routes/engineering'
+import { Route as IntelligenceRouteImport } from './routes/intelligence'
 import { Route as TeamRouteImport } from './routes/team'
 
 const IndexRoute = IndexRouteImport.update({
@@ -29,6 +30,11 @@ const EngineeringRoute = EngineeringRouteImport.update({
   path: '/engineering',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IntelligenceRoute = IntelligenceRouteImport.update({
+  id: '/intelligence',
+  path: '/intelligence',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TeamRoute = TeamRouteImport.update({
   id: '/team',
   path: '/team',
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/delivery': typeof DeliveryRoute
   '/engineering': typeof EngineeringRoute
+  '/intelligence': typeof IntelligenceRoute
   '/team': typeof TeamRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/delivery': typeof DeliveryRoute
   '/engineering': typeof EngineeringRoute
+  '/intelligence': typeof IntelligenceRoute
   '/team': typeof TeamRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,23 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/delivery': typeof DeliveryRoute
   '/engineering': typeof EngineeringRoute
+  '/intelligence': typeof IntelligenceRoute
   '/team': typeof TeamRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/delivery' | '/engineering' | '/team'
+  fullPaths: '/' | '/delivery' | '/engineering' | '/intelligence' | '/team'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/delivery' | '/engineering' | '/team'
-  id: '__root__' | '/' | '/delivery' | '/engineering' | '/team'
+  to: '/' | '/delivery' | '/engineering' | '/intelligence' | '/team'
+  id:
+    '__root__' | '/' | '/delivery' | '/engineering' | '/intelligence' | '/team'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DeliveryRoute: typeof DeliveryRoute
   EngineeringRoute: typeof EngineeringRoute
+  IntelligenceRoute: typeof IntelligenceRoute
   TeamRoute: typeof TeamRoute
 }
 
@@ -92,6 +103,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EngineeringRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/intelligence': {
+      id: '/intelligence'
+      path: '/intelligence'
+      fullPath: '/intelligence'
+      preLoaderRoute: typeof IntelligenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/team': {
       id: '/team'
       path: '/team'
@@ -106,6 +124,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DeliveryRoute: DeliveryRoute,
   EngineeringRoute: EngineeringRoute,
+  IntelligenceRoute: IntelligenceRoute,
   TeamRoute: TeamRoute,
 }
 export const routeTree = rootRouteImport

@@ -289,7 +289,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </aside>
 
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetContent side="start" className="w-[280px] bg-sidebar p-0">
+          <SheetContent side={locale === "ar" ? "right" : "left"} className="w-[280px] bg-sidebar p-0">
             <SheetTitle className="sr-only">{t("shell.menu")}</SheetTitle>
             <div className="flex h-[57px] items-center border-b border-sidebar-border px-4">
               <BrandMark />
