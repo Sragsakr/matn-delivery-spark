@@ -14,7 +14,139 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      core_tenant_retention_settings: {
+        Row: {
+          created_at: string
+          id: string
+          legal_hold: boolean
+          minimum_days: number
+          notes: string | null
+          retention_days: number
+          rule_key: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          legal_hold?: boolean
+          minimum_days: number
+          notes?: string | null
+          retention_days: number
+          rule_key: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          legal_hold?: boolean
+          minimum_days?: number
+          notes?: string | null
+          retention_days?: number
+          rule_key?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "core_tenant_retention_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "core_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      core_tenants: {
+        Row: {
+          created_at: string
+          default_time_zone: string
+          id: string
+          is_active: boolean
+          is_demo: boolean
+          legal_hold: boolean
+          name_ar: string
+          name_en: string
+          settings: Json
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_time_zone?: string
+          id?: string
+          is_active?: boolean
+          is_demo?: boolean
+          legal_hold?: boolean
+          name_ar: string
+          name_en: string
+          settings?: Json
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_time_zone?: string
+          id?: string
+          is_active?: boolean
+          is_demo?: boolean
+          legal_hold?: boolean
+          name_ar?: string
+          name_en?: string
+          settings?: Json
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      core_users: {
+        Row: {
+          auth_user_id: string
+          created_at: string
+          display_name: string
+          email: string
+          id: string
+          is_active: boolean
+          last_seen_at: string | null
+          locale: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          auth_user_id: string
+          created_at?: string
+          display_name: string
+          email: string
+          id?: string
+          is_active?: boolean
+          last_seen_at?: string | null
+          locale?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          auth_user_id?: string
+          created_at?: string
+          display_name?: string
+          email?: string
+          id?: string
+          is_active?: boolean
+          last_seen_at?: string | null
+          locale?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "core_users_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "core_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
