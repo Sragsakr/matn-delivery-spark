@@ -191,7 +191,9 @@ export function KpiGrid({ kpis, loading }: { kpis: KpiMetric[]; loading?: boolea
                   <span className="text-4xl font-semibold tabular-nums text-foreground">
                     {formatValue(selected)}
                   </span>
-                  <StatusPill status={selected.status}>{t(statusKey[selected.status])}</StatusPill>
+                  <StatusPill status={selected.id === "expected" ? "healthy" : selected.status}>
+                    {selected.id === "expected" ? t("status.onTrack") : t(statusKey[selected.status])}
+                  </StatusPill>
                 </div>
 
                 <div>
@@ -242,7 +244,7 @@ export function KpiGrid({ kpis, loading }: { kpis: KpiMetric[]; loading?: boolea
                           key={item.id}
                           className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-border bg-surface px-3 py-2"
                         >
-                          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">#{item.id}</span>
+                          <Iso className="shrink-0 text-xs tabular-nums text-muted-foreground">#{item.id}</Iso>
                           <span className="min-w-0 truncate text-sm text-foreground">{item.title[locale]}</span>
                           <span className="shrink-0 text-[11px] text-muted-foreground">{item.state[locale]}</span>
                         </li>
