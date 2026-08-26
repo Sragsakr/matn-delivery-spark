@@ -15,6 +15,7 @@ import { LocaleProvider } from "@/lib/i18n";
 import { ThemeProvider } from "@/lib/theme";
 import { WorkspaceProvider } from "@/data/workspace";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 function NotFoundComponent() {
   return (
@@ -126,9 +127,11 @@ function RootComponent() {
       <LocaleProvider>
         <ThemeProvider>
           <WorkspaceProvider>
+            <TooltipProvider delayDuration={150}>
             {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
             <Outlet />
             <Toaster />
+            </TooltipProvider>
           </WorkspaceProvider>
         </ThemeProvider>
       </LocaleProvider>
