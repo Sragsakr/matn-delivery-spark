@@ -14,6 +14,494 @@ export type Database = {
   }
   public: {
     Tables: {
+      az_builds: {
+        Row: {
+          access_revoked_at: string | null
+          azure_build_id: number
+          branch: string | null
+          build_number: string | null
+          created_at: string
+          deleted_at_source: string | null
+          duration_seconds: number | null
+          finished_at: string | null
+          id: string
+          is_deleted: boolean
+          last_seen_at: string | null
+          pipeline_id: string
+          project_id: string
+          queued_at: string | null
+          requested_by_member_id: string | null
+          result: Database["public"]["Enums"]["run_result"]
+          source_status: Database["public"]["Enums"]["source_status"]
+          started_at: string | null
+          status: Database["public"]["Enums"]["run_state"]
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          access_revoked_at?: string | null
+          azure_build_id: number
+          branch?: string | null
+          build_number?: string | null
+          created_at?: string
+          deleted_at_source?: string | null
+          duration_seconds?: number | null
+          finished_at?: string | null
+          id?: string
+          is_deleted?: boolean
+          last_seen_at?: string | null
+          pipeline_id: string
+          project_id: string
+          queued_at?: string | null
+          requested_by_member_id?: string | null
+          result?: Database["public"]["Enums"]["run_result"]
+          source_status?: Database["public"]["Enums"]["source_status"]
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["run_state"]
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          access_revoked_at?: string | null
+          azure_build_id?: number
+          branch?: string | null
+          build_number?: string | null
+          created_at?: string
+          deleted_at_source?: string | null
+          duration_seconds?: number | null
+          finished_at?: string | null
+          id?: string
+          is_deleted?: boolean
+          last_seen_at?: string | null
+          pipeline_id?: string
+          project_id?: string
+          queued_at?: string | null
+          requested_by_member_id?: string | null
+          result?: Database["public"]["Enums"]["run_result"]
+          source_status?: Database["public"]["Enums"]["source_status"]
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["run_state"]
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "az_builds_pipeline_fk"
+            columns: ["tenant_id", "project_id", "pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "az_pipelines"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+        ]
+      }
+      az_deployments: {
+        Row: {
+          access_revoked_at: string | null
+          attempt: number
+          azure_deployment_id: number
+          build_id: string | null
+          created_at: string
+          deleted_at_source: string | null
+          duration_seconds: number | null
+          environment_id: string
+          finished_at: string | null
+          id: string
+          is_deleted: boolean
+          is_rollback: boolean
+          last_seen_at: string | null
+          project_id: string
+          requested_by_member_id: string | null
+          result: Database["public"]["Enums"]["run_result"]
+          source_status: Database["public"]["Enums"]["source_status"]
+          started_at: string | null
+          status: Database["public"]["Enums"]["run_state"]
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          access_revoked_at?: string | null
+          attempt?: number
+          azure_deployment_id: number
+          build_id?: string | null
+          created_at?: string
+          deleted_at_source?: string | null
+          duration_seconds?: number | null
+          environment_id: string
+          finished_at?: string | null
+          id?: string
+          is_deleted?: boolean
+          is_rollback?: boolean
+          last_seen_at?: string | null
+          project_id: string
+          requested_by_member_id?: string | null
+          result?: Database["public"]["Enums"]["run_result"]
+          source_status?: Database["public"]["Enums"]["source_status"]
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["run_state"]
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          access_revoked_at?: string | null
+          attempt?: number
+          azure_deployment_id?: number
+          build_id?: string | null
+          created_at?: string
+          deleted_at_source?: string | null
+          duration_seconds?: number | null
+          environment_id?: string
+          finished_at?: string | null
+          id?: string
+          is_deleted?: boolean
+          is_rollback?: boolean
+          last_seen_at?: string | null
+          project_id?: string
+          requested_by_member_id?: string | null
+          result?: Database["public"]["Enums"]["run_result"]
+          source_status?: Database["public"]["Enums"]["source_status"]
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["run_state"]
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "az_deployments_build_fk"
+            columns: ["tenant_id", "project_id", "build_id"]
+            isOneToOne: false
+            referencedRelation: "az_builds"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+          {
+            foreignKeyName: "az_deployments_env_fk"
+            columns: ["tenant_id", "project_id", "environment_id"]
+            isOneToOne: false
+            referencedRelation: "az_environments"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+        ]
+      }
+      az_environments: {
+        Row: {
+          access_revoked_at: string | null
+          created_at: string
+          deleted_at_source: string | null
+          id: string
+          is_deleted: boolean
+          is_production: boolean
+          last_seen_at: string | null
+          name: string
+          project_id: string
+          rank: number
+          source_status: Database["public"]["Enums"]["source_status"]
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          access_revoked_at?: string | null
+          created_at?: string
+          deleted_at_source?: string | null
+          id?: string
+          is_deleted?: boolean
+          is_production?: boolean
+          last_seen_at?: string | null
+          name: string
+          project_id: string
+          rank?: number
+          source_status?: Database["public"]["Enums"]["source_status"]
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          access_revoked_at?: string | null
+          created_at?: string
+          deleted_at_source?: string | null
+          id?: string
+          is_deleted?: boolean
+          is_production?: boolean
+          last_seen_at?: string | null
+          name?: string
+          project_id?: string
+          rank?: number
+          source_status?: Database["public"]["Enums"]["source_status"]
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "az_environments_project_fk"
+            columns: ["tenant_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "core_projects"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      az_pipelines: {
+        Row: {
+          access_revoked_at: string | null
+          azure_pipeline_id: number
+          created_at: string
+          deleted_at_source: string | null
+          folder: string | null
+          id: string
+          is_deleted: boolean
+          is_disabled: boolean
+          last_seen_at: string | null
+          name: string
+          pipeline_type: string
+          project_id: string
+          repository_id: string | null
+          source_status: Database["public"]["Enums"]["source_status"]
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          access_revoked_at?: string | null
+          azure_pipeline_id: number
+          created_at?: string
+          deleted_at_source?: string | null
+          folder?: string | null
+          id?: string
+          is_deleted?: boolean
+          is_disabled?: boolean
+          last_seen_at?: string | null
+          name: string
+          pipeline_type?: string
+          project_id: string
+          repository_id?: string | null
+          source_status?: Database["public"]["Enums"]["source_status"]
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          access_revoked_at?: string | null
+          azure_pipeline_id?: number
+          created_at?: string
+          deleted_at_source?: string | null
+          folder?: string | null
+          id?: string
+          is_deleted?: boolean
+          is_disabled?: boolean
+          last_seen_at?: string | null
+          name?: string
+          pipeline_type?: string
+          project_id?: string
+          repository_id?: string | null
+          source_status?: Database["public"]["Enums"]["source_status"]
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "az_pipelines_project_fk"
+            columns: ["tenant_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "core_projects"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "az_pipelines_repo_fk"
+            columns: ["tenant_id", "project_id", "repository_id"]
+            isOneToOne: false
+            referencedRelation: "az_repositories"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+        ]
+      }
+      az_pull_request_reviews: {
+        Row: {
+          access_revoked_at: string | null
+          created_at: string
+          deleted_at_source: string | null
+          id: string
+          is_deleted: boolean
+          is_required: boolean
+          last_seen_at: string | null
+          pull_request_id: string
+          reviewer_member_id: string
+          source_status: Database["public"]["Enums"]["source_status"]
+          tenant_id: string
+          updated_at: string
+          vote: Database["public"]["Enums"]["review_vote"]
+          voted_at: string | null
+        }
+        Insert: {
+          access_revoked_at?: string | null
+          created_at?: string
+          deleted_at_source?: string | null
+          id?: string
+          is_deleted?: boolean
+          is_required?: boolean
+          last_seen_at?: string | null
+          pull_request_id: string
+          reviewer_member_id: string
+          source_status?: Database["public"]["Enums"]["source_status"]
+          tenant_id: string
+          updated_at?: string
+          vote?: Database["public"]["Enums"]["review_vote"]
+          voted_at?: string | null
+        }
+        Update: {
+          access_revoked_at?: string | null
+          created_at?: string
+          deleted_at_source?: string | null
+          id?: string
+          is_deleted?: boolean
+          is_required?: boolean
+          last_seen_at?: string | null
+          pull_request_id?: string
+          reviewer_member_id?: string
+          source_status?: Database["public"]["Enums"]["source_status"]
+          tenant_id?: string
+          updated_at?: string
+          vote?: Database["public"]["Enums"]["review_vote"]
+          voted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "az_pr_reviews_member_fk"
+            columns: ["tenant_id", "reviewer_member_id"]
+            isOneToOne: false
+            referencedRelation: "core_members"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "az_pr_reviews_pr_fk"
+            columns: ["tenant_id", "pull_request_id"]
+            isOneToOne: false
+            referencedRelation: "az_pull_requests"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      az_pull_requests: {
+        Row: {
+          access_revoked_at: string | null
+          added_lines: number | null
+          approved_at: string | null
+          azure_pull_request_id: number
+          closed_at: string | null
+          comment_count: number
+          created_at: string
+          created_at_source: string
+          created_by_member_id: string | null
+          deleted_at_source: string | null
+          deleted_lines: number | null
+          first_review_at: string | null
+          id: string
+          is_deleted: boolean
+          is_draft: boolean
+          last_activity_at: string | null
+          last_seen_at: string | null
+          merged_at: string | null
+          organization_id: string
+          project_id: string
+          repository_id: string
+          reviewer_count: number
+          source_branch: string | null
+          source_status: Database["public"]["Enums"]["source_status"]
+          status: Database["public"]["Enums"]["pull_request_status"]
+          target_branch: string | null
+          team_id: string | null
+          tenant_id: string
+          time_to_first_review_seconds: number | null
+          time_to_merge_seconds: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          access_revoked_at?: string | null
+          added_lines?: number | null
+          approved_at?: string | null
+          azure_pull_request_id: number
+          closed_at?: string | null
+          comment_count?: number
+          created_at?: string
+          created_at_source: string
+          created_by_member_id?: string | null
+          deleted_at_source?: string | null
+          deleted_lines?: number | null
+          first_review_at?: string | null
+          id?: string
+          is_deleted?: boolean
+          is_draft?: boolean
+          last_activity_at?: string | null
+          last_seen_at?: string | null
+          merged_at?: string | null
+          organization_id: string
+          project_id: string
+          repository_id: string
+          reviewer_count?: number
+          source_branch?: string | null
+          source_status?: Database["public"]["Enums"]["source_status"]
+          status?: Database["public"]["Enums"]["pull_request_status"]
+          target_branch?: string | null
+          team_id?: string | null
+          tenant_id: string
+          time_to_first_review_seconds?: number | null
+          time_to_merge_seconds?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          access_revoked_at?: string | null
+          added_lines?: number | null
+          approved_at?: string | null
+          azure_pull_request_id?: number
+          closed_at?: string | null
+          comment_count?: number
+          created_at?: string
+          created_at_source?: string
+          created_by_member_id?: string | null
+          deleted_at_source?: string | null
+          deleted_lines?: number | null
+          first_review_at?: string | null
+          id?: string
+          is_deleted?: boolean
+          is_draft?: boolean
+          last_activity_at?: string | null
+          last_seen_at?: string | null
+          merged_at?: string | null
+          organization_id?: string
+          project_id?: string
+          repository_id?: string
+          reviewer_count?: number
+          source_branch?: string | null
+          source_status?: Database["public"]["Enums"]["source_status"]
+          status?: Database["public"]["Enums"]["pull_request_status"]
+          target_branch?: string | null
+          team_id?: string | null
+          tenant_id?: string
+          time_to_first_review_seconds?: number | null
+          time_to_merge_seconds?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "az_pull_requests_author_fk"
+            columns: ["tenant_id", "created_by_member_id"]
+            isOneToOne: false
+            referencedRelation: "core_members"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "az_pull_requests_repo_fk"
+            columns: ["tenant_id", "project_id", "repository_id"]
+            isOneToOne: false
+            referencedRelation: "az_repositories"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+          {
+            foreignKeyName: "az_pull_requests_team_fk"
+            columns: ["tenant_id", "project_id", "team_id"]
+            isOneToOne: false
+            referencedRelation: "core_teams"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+        ]
+      }
       az_raw_payloads: {
         Row: {
           azure_id: string
@@ -52,6 +540,205 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "core_tenants"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      az_repositories: {
+        Row: {
+          access_revoked_at: string | null
+          azure_repository_id: string
+          created_at: string
+          default_branch: string | null
+          deleted_at_source: string | null
+          id: string
+          is_deleted: boolean
+          is_disabled: boolean
+          last_seen_at: string | null
+          name: string
+          organization_id: string
+          project_id: string
+          source_status: Database["public"]["Enums"]["source_status"]
+          tenant_id: string
+          updated_at: string
+          web_url: string | null
+        }
+        Insert: {
+          access_revoked_at?: string | null
+          azure_repository_id: string
+          created_at?: string
+          default_branch?: string | null
+          deleted_at_source?: string | null
+          id?: string
+          is_deleted?: boolean
+          is_disabled?: boolean
+          last_seen_at?: string | null
+          name: string
+          organization_id: string
+          project_id: string
+          source_status?: Database["public"]["Enums"]["source_status"]
+          tenant_id: string
+          updated_at?: string
+          web_url?: string | null
+        }
+        Update: {
+          access_revoked_at?: string | null
+          azure_repository_id?: string
+          created_at?: string
+          default_branch?: string | null
+          deleted_at_source?: string | null
+          id?: string
+          is_deleted?: boolean
+          is_disabled?: boolean
+          last_seen_at?: string | null
+          name?: string
+          organization_id?: string
+          project_id?: string
+          source_status?: Database["public"]["Enums"]["source_status"]
+          tenant_id?: string
+          updated_at?: string
+          web_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "az_repositories_project_fk"
+            columns: ["tenant_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "core_projects"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      az_test_result_summaries: {
+        Row: {
+          calculated_at: string
+          created_at: string
+          duration_seconds: number | null
+          failed_count: number
+          flaky_count: number
+          id: string
+          pass_rate: number | null
+          passed_count: number
+          skipped_count: number
+          tenant_id: string
+          test_run_id: string
+          total_count: number
+          updated_at: string
+        }
+        Insert: {
+          calculated_at?: string
+          created_at?: string
+          duration_seconds?: number | null
+          failed_count?: number
+          flaky_count?: number
+          id?: string
+          pass_rate?: number | null
+          passed_count?: number
+          skipped_count?: number
+          tenant_id: string
+          test_run_id: string
+          total_count?: number
+          updated_at?: string
+        }
+        Update: {
+          calculated_at?: string
+          created_at?: string
+          duration_seconds?: number | null
+          failed_count?: number
+          flaky_count?: number
+          id?: string
+          pass_rate?: number | null
+          passed_count?: number
+          skipped_count?: number
+          tenant_id?: string
+          test_run_id?: string
+          total_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "az_test_result_summaries_run_fk"
+            columns: ["tenant_id", "test_run_id"]
+            isOneToOne: true
+            referencedRelation: "az_test_runs"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      az_test_runs: {
+        Row: {
+          access_revoked_at: string | null
+          azure_test_run_id: number
+          build_id: string | null
+          completed_at: string | null
+          created_at: string
+          deleted_at_source: string | null
+          deployment_id: string | null
+          id: string
+          is_automated: boolean
+          is_deleted: boolean
+          last_seen_at: string | null
+          name: string | null
+          project_id: string
+          source_status: Database["public"]["Enums"]["source_status"]
+          started_at: string | null
+          state: Database["public"]["Enums"]["run_state"]
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          access_revoked_at?: string | null
+          azure_test_run_id: number
+          build_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          deleted_at_source?: string | null
+          deployment_id?: string | null
+          id?: string
+          is_automated?: boolean
+          is_deleted?: boolean
+          last_seen_at?: string | null
+          name?: string | null
+          project_id: string
+          source_status?: Database["public"]["Enums"]["source_status"]
+          started_at?: string | null
+          state?: Database["public"]["Enums"]["run_state"]
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          access_revoked_at?: string | null
+          azure_test_run_id?: number
+          build_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          deleted_at_source?: string | null
+          deployment_id?: string | null
+          id?: string
+          is_automated?: boolean
+          is_deleted?: boolean
+          last_seen_at?: string | null
+          name?: string | null
+          project_id?: string
+          source_status?: Database["public"]["Enums"]["source_status"]
+          started_at?: string | null
+          state?: Database["public"]["Enums"]["run_state"]
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "az_test_runs_build_fk"
+            columns: ["tenant_id", "project_id", "build_id"]
+            isOneToOne: false
+            referencedRelation: "az_builds"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+          {
+            foreignKeyName: "az_test_runs_project_fk"
+            columns: ["tenant_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "core_projects"
+            referencedColumns: ["tenant_id", "id"]
           },
         ]
       }
