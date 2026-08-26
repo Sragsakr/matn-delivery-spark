@@ -23,7 +23,97 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      actor_type: "user" | "service" | "system" | "scheduler"
+      app_role:
+        | "platform_admin"
+        | "tenant_admin"
+        | "executive_viewer"
+        | "delivery_manager"
+        | "team_lead"
+        | "contributor"
+        | "qa_release_owner"
+        | "readonly_viewer"
+      audit_outcome: "success" | "failure" | "denied" | "noop"
+      bug_handling_mode: "as_requirement" | "as_task" | "excluded"
+      connection_status:
+        | "unconfigured"
+        | "pending"
+        | "connected"
+        | "error"
+        | "disabled"
+      content_origin: "deterministic" | "ai_generated" | "human"
+      health_status: "good" | "watch" | "risk" | "critical" | "unknown"
+      issue_status: "open" | "acknowledged" | "resolved" | "ignored"
+      iteration_phase: "future" | "current" | "completed" | "undated"
+      kpi_direction: "higherIsBetter" | "lowerIsBetter" | "targetBand"
+      kpi_scope_level: "global" | "tenant" | "project" | "team"
+      process_template_kind: "agile" | "scrum" | "cmmi" | "basic" | "custom"
+      pull_request_status:
+        | "active"
+        | "abandoned"
+        | "completed"
+        | "notSet"
+        | "unknown"
+      recommendation_status:
+        | "proposed"
+        | "accepted"
+        | "rejected"
+        | "deferred"
+        | "completed"
+      review_vote:
+        | "approved"
+        | "approvedWithSuggestions"
+        | "noVote"
+        | "waitingForAuthor"
+        | "rejected"
+      risk_status: "open" | "mitigating" | "resolved" | "dismissed"
+      rollup_mode:
+        | "leaf_only"
+        | "parent_only"
+        | "process_mapping"
+        | "story_level"
+      run_result:
+        | "succeeded"
+        | "partiallySucceeded"
+        | "failed"
+        | "canceled"
+        | "none"
+        | "unknown"
+      run_state:
+        | "notStarted"
+        | "inProgress"
+        | "completed"
+        | "canceling"
+        | "postponed"
+        | "unknown"
+      scope_target: "project" | "team"
+      severity_level: "critical" | "high" | "medium" | "low" | "unknown"
+      source_status: "active" | "deleted" | "inaccessible" | "unknown"
+      state_category:
+        | "proposed"
+        | "inProgress"
+        | "resolved"
+        | "completed"
+        | "removed"
+        | "unknown"
+      sync_auth_mode: "pat" | "oauth" | "managed_identity" | "none"
+      sync_run_status:
+        | "queued"
+        | "running"
+        | "succeeded"
+        | "partial"
+        | "failed"
+        | "skipped"
+      work_item_alias:
+        | "epic"
+        | "feature"
+        | "story"
+        | "requirement"
+        | "issue"
+        | "bug"
+        | "task"
+        | "testCase"
+        | "custom"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +240,109 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      actor_type: ["user", "service", "system", "scheduler"],
+      app_role: [
+        "platform_admin",
+        "tenant_admin",
+        "executive_viewer",
+        "delivery_manager",
+        "team_lead",
+        "contributor",
+        "qa_release_owner",
+        "readonly_viewer",
+      ],
+      audit_outcome: ["success", "failure", "denied", "noop"],
+      bug_handling_mode: ["as_requirement", "as_task", "excluded"],
+      connection_status: [
+        "unconfigured",
+        "pending",
+        "connected",
+        "error",
+        "disabled",
+      ],
+      content_origin: ["deterministic", "ai_generated", "human"],
+      health_status: ["good", "watch", "risk", "critical", "unknown"],
+      issue_status: ["open", "acknowledged", "resolved", "ignored"],
+      iteration_phase: ["future", "current", "completed", "undated"],
+      kpi_direction: ["higherIsBetter", "lowerIsBetter", "targetBand"],
+      kpi_scope_level: ["global", "tenant", "project", "team"],
+      process_template_kind: ["agile", "scrum", "cmmi", "basic", "custom"],
+      pull_request_status: [
+        "active",
+        "abandoned",
+        "completed",
+        "notSet",
+        "unknown",
+      ],
+      recommendation_status: [
+        "proposed",
+        "accepted",
+        "rejected",
+        "deferred",
+        "completed",
+      ],
+      review_vote: [
+        "approved",
+        "approvedWithSuggestions",
+        "noVote",
+        "waitingForAuthor",
+        "rejected",
+      ],
+      risk_status: ["open", "mitigating", "resolved", "dismissed"],
+      rollup_mode: [
+        "leaf_only",
+        "parent_only",
+        "process_mapping",
+        "story_level",
+      ],
+      run_result: [
+        "succeeded",
+        "partiallySucceeded",
+        "failed",
+        "canceled",
+        "none",
+        "unknown",
+      ],
+      run_state: [
+        "notStarted",
+        "inProgress",
+        "completed",
+        "canceling",
+        "postponed",
+        "unknown",
+      ],
+      scope_target: ["project", "team"],
+      severity_level: ["critical", "high", "medium", "low", "unknown"],
+      source_status: ["active", "deleted", "inaccessible", "unknown"],
+      state_category: [
+        "proposed",
+        "inProgress",
+        "resolved",
+        "completed",
+        "removed",
+        "unknown",
+      ],
+      sync_auth_mode: ["pat", "oauth", "managed_identity", "none"],
+      sync_run_status: [
+        "queued",
+        "running",
+        "succeeded",
+        "partial",
+        "failed",
+        "skipped",
+      ],
+      work_item_alias: [
+        "epic",
+        "feature",
+        "story",
+        "requirement",
+        "issue",
+        "bug",
+        "task",
+        "testCase",
+        "custom",
+      ],
+    },
   },
 } as const
