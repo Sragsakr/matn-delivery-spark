@@ -14,6 +14,535 @@ export type Database = {
   }
   public: {
     Tables: {
+      an_daily_iteration_snapshots: {
+        Row: {
+          added_estimate: number | null
+          blocked_count: number | null
+          committed_estimate: number | null
+          completed_estimate: number | null
+          created_at: string
+          finalized_at: string | null
+          id: string
+          item_counts: Json
+          iteration_id: string
+          metrics: Json
+          project_id: string
+          remaining_estimate: number | null
+          removed_estimate: number | null
+          snapshot_date: string
+          team_id: string
+          team_iteration_id: string
+          tenant_id: string
+          time_zone: string
+          total_working_days: number | null
+          updated_at: string
+          working_day_index: number | null
+        }
+        Insert: {
+          added_estimate?: number | null
+          blocked_count?: number | null
+          committed_estimate?: number | null
+          completed_estimate?: number | null
+          created_at?: string
+          finalized_at?: string | null
+          id?: string
+          item_counts?: Json
+          iteration_id: string
+          metrics?: Json
+          project_id: string
+          remaining_estimate?: number | null
+          removed_estimate?: number | null
+          snapshot_date: string
+          team_id: string
+          team_iteration_id: string
+          tenant_id: string
+          time_zone?: string
+          total_working_days?: number | null
+          updated_at?: string
+          working_day_index?: number | null
+        }
+        Update: {
+          added_estimate?: number | null
+          blocked_count?: number | null
+          committed_estimate?: number | null
+          completed_estimate?: number | null
+          created_at?: string
+          finalized_at?: string | null
+          id?: string
+          item_counts?: Json
+          iteration_id?: string
+          metrics?: Json
+          project_id?: string
+          remaining_estimate?: number | null
+          removed_estimate?: number | null
+          snapshot_date?: string
+          team_id?: string
+          team_iteration_id?: string
+          tenant_id?: string
+          time_zone?: string
+          total_working_days?: number | null
+          updated_at?: string
+          working_day_index?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "an_daily_iteration_snapshots_iteration_fk"
+            columns: ["tenant_id", "project_id", "iteration_id"]
+            isOneToOne: false
+            referencedRelation: "core_iterations"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+          {
+            foreignKeyName: "an_daily_iteration_snapshots_team_fk"
+            columns: ["tenant_id", "project_id", "team_id"]
+            isOneToOne: false
+            referencedRelation: "core_teams"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+          {
+            foreignKeyName: "an_daily_iteration_snapshots_ti_fk"
+            columns: ["tenant_id", "project_id", "team_iteration_id"]
+            isOneToOne: false
+            referencedRelation: "core_team_iterations"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+        ]
+      }
+      an_daily_member_snapshots: {
+        Row: {
+          assigned_estimate: number | null
+          capacity_hours: number | null
+          completed_estimate: number | null
+          created_at: string
+          finalized_at: string | null
+          id: string
+          member_id: string
+          metrics: Json
+          project_id: string
+          snapshot_date: string
+          team_id: string
+          team_iteration_id: string | null
+          tenant_id: string
+          time_zone: string
+          updated_at: string
+          utilization: number | null
+        }
+        Insert: {
+          assigned_estimate?: number | null
+          capacity_hours?: number | null
+          completed_estimate?: number | null
+          created_at?: string
+          finalized_at?: string | null
+          id?: string
+          member_id: string
+          metrics?: Json
+          project_id: string
+          snapshot_date: string
+          team_id: string
+          team_iteration_id?: string | null
+          tenant_id: string
+          time_zone?: string
+          updated_at?: string
+          utilization?: number | null
+        }
+        Update: {
+          assigned_estimate?: number | null
+          capacity_hours?: number | null
+          completed_estimate?: number | null
+          created_at?: string
+          finalized_at?: string | null
+          id?: string
+          member_id?: string
+          metrics?: Json
+          project_id?: string
+          snapshot_date?: string
+          team_id?: string
+          team_iteration_id?: string | null
+          tenant_id?: string
+          time_zone?: string
+          updated_at?: string
+          utilization?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "an_daily_member_snapshots_member_fk"
+            columns: ["tenant_id", "member_id"]
+            isOneToOne: false
+            referencedRelation: "core_members"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "an_daily_member_snapshots_team_fk"
+            columns: ["tenant_id", "project_id", "team_id"]
+            isOneToOne: false
+            referencedRelation: "core_teams"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+          {
+            foreignKeyName: "an_daily_member_snapshots_ti_fk"
+            columns: ["tenant_id", "project_id", "team_iteration_id"]
+            isOneToOne: false
+            referencedRelation: "core_team_iterations"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+        ]
+      }
+      an_daily_project_snapshots: {
+        Row: {
+          created_at: string
+          finalized_at: string | null
+          id: string
+          metrics: Json
+          project_id: string
+          snapshot_date: string
+          tenant_id: string
+          time_zone: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          finalized_at?: string | null
+          id?: string
+          metrics?: Json
+          project_id: string
+          snapshot_date: string
+          tenant_id: string
+          time_zone?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          finalized_at?: string | null
+          id?: string
+          metrics?: Json
+          project_id?: string
+          snapshot_date?: string
+          tenant_id?: string
+          time_zone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "an_daily_project_snapshots_project_fk"
+            columns: ["tenant_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "core_projects"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      an_daily_team_snapshots: {
+        Row: {
+          created_at: string
+          finalized_at: string | null
+          id: string
+          metrics: Json
+          project_id: string
+          snapshot_date: string
+          team_id: string
+          team_iteration_id: string | null
+          tenant_id: string
+          time_zone: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          finalized_at?: string | null
+          id?: string
+          metrics?: Json
+          project_id: string
+          snapshot_date: string
+          team_id: string
+          team_iteration_id?: string | null
+          tenant_id: string
+          time_zone?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          finalized_at?: string | null
+          id?: string
+          metrics?: Json
+          project_id?: string
+          snapshot_date?: string
+          team_id?: string
+          team_iteration_id?: string | null
+          tenant_id?: string
+          time_zone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "an_daily_team_snapshots_team_fk"
+            columns: ["tenant_id", "project_id", "team_id"]
+            isOneToOne: false
+            referencedRelation: "core_teams"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+          {
+            foreignKeyName: "an_daily_team_snapshots_ti_fk"
+            columns: ["tenant_id", "project_id", "team_iteration_id"]
+            isOneToOne: false
+            referencedRelation: "core_team_iterations"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+        ]
+      }
+      an_kpi_configuration_overrides: {
+        Row: {
+          configuration: Json
+          configuration_version: number
+          created_at: string
+          created_by_user_id: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          is_enabled: boolean
+          kpi_definition_id: string
+          kpi_id: string
+          project_id: string | null
+          team_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          configuration?: Json
+          configuration_version?: number
+          created_at?: string
+          created_by_user_id?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_enabled?: boolean
+          kpi_definition_id: string
+          kpi_id: string
+          project_id?: string | null
+          team_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          configuration?: Json
+          configuration_version?: number
+          created_at?: string
+          created_by_user_id?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_enabled?: boolean
+          kpi_definition_id?: string
+          kpi_id?: string
+          project_id?: string | null
+          team_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "an_kpi_configuration_overrides_kpi_definition_id_fkey"
+            columns: ["kpi_definition_id"]
+            isOneToOne: false
+            referencedRelation: "an_kpi_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "an_kpi_configuration_overrides_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "core_tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "an_kpi_overrides_project_fk"
+            columns: ["tenant_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "core_projects"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "an_kpi_overrides_team_fk"
+            columns: ["tenant_id", "project_id", "team_id"]
+            isOneToOne: false
+            referencedRelation: "core_teams"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+        ]
+      }
+      an_kpi_definitions: {
+        Row: {
+          calculation_version: number
+          category: string
+          created_at: string
+          default_configuration: Json
+          description_ar: string | null
+          description_en: string | null
+          direction: Database["public"]["Enums"]["kpi_direction"]
+          formula: string
+          id: string
+          inputs: Json
+          is_active: boolean
+          kpi_id: string
+          name_ar: string
+          name_en: string
+          supported_scopes: Database["public"]["Enums"]["kpi_scope_level"][]
+          unit: string
+        }
+        Insert: {
+          calculation_version?: number
+          category: string
+          created_at?: string
+          default_configuration?: Json
+          description_ar?: string | null
+          description_en?: string | null
+          direction?: Database["public"]["Enums"]["kpi_direction"]
+          formula: string
+          id?: string
+          inputs?: Json
+          is_active?: boolean
+          kpi_id: string
+          name_ar: string
+          name_en: string
+          supported_scopes?: Database["public"]["Enums"]["kpi_scope_level"][]
+          unit: string
+        }
+        Update: {
+          calculation_version?: number
+          category?: string
+          created_at?: string
+          default_configuration?: Json
+          description_ar?: string | null
+          description_en?: string | null
+          direction?: Database["public"]["Enums"]["kpi_direction"]
+          formula?: string
+          id?: string
+          inputs?: Json
+          is_active?: boolean
+          kpi_id?: string
+          name_ar?: string
+          name_en?: string
+          supported_scopes?: Database["public"]["Enums"]["kpi_scope_level"][]
+          unit?: string
+        }
+        Relationships: []
+      }
+      an_kpi_values: {
+        Row: {
+          calculated_at: string
+          calculation_version: number
+          configuration_version: number
+          created_at: string
+          denominator: number | null
+          health: Database["public"]["Enums"]["health_status"]
+          id: string
+          kpi_definition_id: string
+          kpi_id: string
+          member_id: string | null
+          numerator: number | null
+          project_id: string | null
+          resolved_configuration: Json
+          sample_size: number | null
+          scope_hash: string | null
+          scope_level: Database["public"]["Enums"]["kpi_scope_level"]
+          team_id: string | null
+          team_iteration_id: string | null
+          tenant_id: string
+          valid_from: string
+          valid_to: string | null
+          value: number | null
+        }
+        Insert: {
+          calculated_at?: string
+          calculation_version?: number
+          configuration_version?: number
+          created_at?: string
+          denominator?: number | null
+          health?: Database["public"]["Enums"]["health_status"]
+          id?: string
+          kpi_definition_id: string
+          kpi_id: string
+          member_id?: string | null
+          numerator?: number | null
+          project_id?: string | null
+          resolved_configuration?: Json
+          sample_size?: number | null
+          scope_hash?: string | null
+          scope_level?: Database["public"]["Enums"]["kpi_scope_level"]
+          team_id?: string | null
+          team_iteration_id?: string | null
+          tenant_id: string
+          valid_from: string
+          valid_to?: string | null
+          value?: number | null
+        }
+        Update: {
+          calculated_at?: string
+          calculation_version?: number
+          configuration_version?: number
+          created_at?: string
+          denominator?: number | null
+          health?: Database["public"]["Enums"]["health_status"]
+          id?: string
+          kpi_definition_id?: string
+          kpi_id?: string
+          member_id?: string | null
+          numerator?: number | null
+          project_id?: string | null
+          resolved_configuration?: Json
+          sample_size?: number | null
+          scope_hash?: string | null
+          scope_level?: Database["public"]["Enums"]["kpi_scope_level"]
+          team_id?: string | null
+          team_iteration_id?: string | null
+          tenant_id?: string
+          valid_from?: string
+          valid_to?: string | null
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "an_kpi_values_kpi_definition_id_fkey"
+            columns: ["kpi_definition_id"]
+            isOneToOne: false
+            referencedRelation: "an_kpi_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "an_kpi_values_member_fk"
+            columns: ["tenant_id", "member_id"]
+            isOneToOne: false
+            referencedRelation: "core_members"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "an_kpi_values_project_fk"
+            columns: ["tenant_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "core_projects"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "an_kpi_values_team_fk"
+            columns: ["tenant_id", "project_id", "team_id"]
+            isOneToOne: false
+            referencedRelation: "core_teams"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+          {
+            foreignKeyName: "an_kpi_values_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "core_tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "an_kpi_values_ti_fk"
+            columns: ["tenant_id", "project_id", "team_iteration_id"]
+            isOneToOne: false
+            referencedRelation: "core_team_iterations"
+            referencedColumns: ["tenant_id", "project_id", "id"]
+          },
+        ]
+      }
       az_builds: {
         Row: {
           access_revoked_at: string | null
