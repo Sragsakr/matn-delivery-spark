@@ -16,12 +16,13 @@ import { Iso, SectionCard } from "./primitives";
 export function TrajectoryCard({
   trajectory,
   currentDay,
+  totalDays,
 }: {
   trajectory: SprintTrajectory;
   currentDay: number;
+  totalDays: number;
 }) {
   const { t, locale } = useI18n();
-  const totalDays = trajectory.points.length;
   const current = trajectory.points.find((p) => p.day === currentDay) ?? trajectory.points[0];
   const summary = t("trajectory.summary", {
     a: currentDay,

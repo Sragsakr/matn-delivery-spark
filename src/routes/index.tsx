@@ -98,6 +98,7 @@ function OverviewPage() {
                 <TrajectoryCard
                   trajectory={snapshot.trajectory}
                   currentDay={iteration?.currentDay ?? 0}
+                  totalDays={iteration?.totalDays ?? 0}
                 />
               )}
 
