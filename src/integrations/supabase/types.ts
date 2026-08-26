@@ -781,6 +781,197 @@ export type Database = {
         }
         Relationships: []
       }
+      core_user_project_scopes: {
+        Row: {
+          closed_reason: string | null
+          created_at: string
+          expires_at: string | null
+          granted_at: string
+          granted_by_user_id: string | null
+          id: string
+          idempotency_key: string | null
+          project_id: string
+          reason: string | null
+          revoked_at: string | null
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          closed_reason?: string | null
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          granted_by_user_id?: string | null
+          id?: string
+          idempotency_key?: string | null
+          project_id: string
+          reason?: string | null
+          revoked_at?: string | null
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          closed_reason?: string | null
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          granted_by_user_id?: string | null
+          id?: string
+          idempotency_key?: string | null
+          project_id?: string
+          reason?: string | null
+          revoked_at?: string | null
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "core_user_project_scopes_granted_by_fk"
+            columns: ["tenant_id", "granted_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "core_users"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "core_user_project_scopes_project_fk"
+            columns: ["tenant_id", "project_id"]
+            isOneToOne: false
+            referencedRelation: "core_projects"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "core_user_project_scopes_user_fk"
+            columns: ["tenant_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "core_users"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      core_user_roles: {
+        Row: {
+          created_at: string
+          granted_at: string
+          granted_by_user_id: string | null
+          id: string
+          revoked_at: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_at?: string
+          granted_by_user_id?: string | null
+          id?: string
+          revoked_at?: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_at?: string
+          granted_by_user_id?: string | null
+          id?: string
+          revoked_at?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "core_user_roles_granted_by_fk"
+            columns: ["tenant_id", "granted_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "core_users"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "core_user_roles_user_fk"
+            columns: ["tenant_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "core_users"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
+      core_user_team_scopes: {
+        Row: {
+          closed_reason: string | null
+          created_at: string
+          expires_at: string | null
+          granted_at: string
+          granted_by_user_id: string | null
+          id: string
+          idempotency_key: string | null
+          reason: string | null
+          revoked_at: string | null
+          team_id: string
+          tenant_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          closed_reason?: string | null
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          granted_by_user_id?: string | null
+          id?: string
+          idempotency_key?: string | null
+          reason?: string | null
+          revoked_at?: string | null
+          team_id: string
+          tenant_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          closed_reason?: string | null
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          granted_by_user_id?: string | null
+          id?: string
+          idempotency_key?: string | null
+          reason?: string | null
+          revoked_at?: string | null
+          team_id?: string
+          tenant_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "core_user_team_scopes_granted_by_fk"
+            columns: ["tenant_id", "granted_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "core_users"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "core_user_team_scopes_team_fk"
+            columns: ["tenant_id", "team_id"]
+            isOneToOne: false
+            referencedRelation: "core_teams"
+            referencedColumns: ["tenant_id", "id"]
+          },
+          {
+            foreignKeyName: "core_user_team_scopes_user_fk"
+            columns: ["tenant_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "core_users"
+            referencedColumns: ["tenant_id", "id"]
+          },
+        ]
+      }
       core_users: {
         Row: {
           auth_user_id: string
