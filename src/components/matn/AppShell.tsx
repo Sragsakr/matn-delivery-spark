@@ -240,7 +240,7 @@ function TopBar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
