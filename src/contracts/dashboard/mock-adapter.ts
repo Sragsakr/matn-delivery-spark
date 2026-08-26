@@ -17,7 +17,7 @@ import type {
   Recommendation,
   RiskSignal,
 } from "@/types/domain";
-import type { KpiId } from "@/types/domain/kpi";
+import type { KpiId, ResolvedKpiConfiguration } from "@/types/domain/kpi";
 import type { DashboardContext, PartialDataWarning, Section } from "./shared";
 import type {
   EngineeringHealthContract,
