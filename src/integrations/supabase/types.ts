@@ -3572,7 +3572,70 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      can_view_member_detail: {
+        Args: { target_team_id: string; target_tenant_id: string }
+        Returns: boolean
+      }
+      current_core_user_id: { Args: never; Returns: string }
+      current_tenant_id: { Args: never; Returns: string }
+      grant_project_scope: {
+        Args: {
+          _expires_at?: string
+          _granted_by: string
+          _idempotency_key?: string
+          _project_id: string
+          _reason?: string
+          _tenant_id: string
+          _user_id: string
+        }
+        Returns: string
+      }
+      grant_team_scope: {
+        Args: {
+          _expires_at?: string
+          _granted_by: string
+          _idempotency_key?: string
+          _reason?: string
+          _team_id: string
+          _tenant_id: string
+          _user_id: string
+        }
+        Returns: string
+      }
+      has_full_tenant_access: {
+        Args: { target_tenant_id: string }
+        Returns: boolean
+      }
+      has_project_access: {
+        Args: { target_project_id: string; target_tenant_id: string }
+        Returns: boolean
+      }
+      has_role: {
+        Args: { target_role: Database["public"]["Enums"]["app_role"] }
+        Returns: boolean
+      }
+      has_team_access: {
+        Args: { target_team_id: string; target_tenant_id: string }
+        Returns: boolean
+      }
+      has_tenant_access: {
+        Args: { target_tenant_id: string }
+        Returns: boolean
+      }
+      is_platform_admin: { Args: never; Returns: boolean }
+      write_audit_event: {
+        Args: {
+          _action: string
+          _actor_user_id: string
+          _entity_id: string
+          _entity_type: string
+          _idempotency_key?: string
+          _metadata?: Json
+          _outcome?: Database["public"]["Enums"]["audit_outcome"]
+          _tenant_id: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       actor_type: "user" | "service" | "system" | "scheduler"
