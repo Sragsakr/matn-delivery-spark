@@ -46,6 +46,23 @@ function stamp(now: string): CalculationStamp {
   return { calculationVersion: MOCK_CALCULATION_VERSION, calculatedAt: now, origin: "mock" };
 }
 
+/** Mock mode always resolves to the shipped global default configuration. */
+function mockResolvedConfiguration(kpiId: KpiId, now: string): ResolvedKpiConfiguration {
+  return {
+    kpiId,
+    kpiDefinitionId: `mock-def-${kpiId}`,
+    calculationVersion: MOCK_CALCULATION_VERSION,
+    thresholds: { healthy: null, warning: null, critical: null, direction: "higherIsBetter" },
+    weight: null,
+    displayFormat: "0",
+    enabled: true,
+    resolvedFrom: "global_default",
+    overrideId: null,
+    configurationVersion: `mock-config-${kpiId}`,
+    resolvedAt: now,
+  };
+}
+
 function measure(value: number | null): Measure {
   return {
     value,
