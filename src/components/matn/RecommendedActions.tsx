@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Check, Search, X } from "lucide-react";
+import { CalendarPlus, EyeOff, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
 import type { RecommendedAction } from "@/data/types";
-import { EmptyBlock, SectionCard } from "./primitives";
+import { EmptyBlock, Iso, SectionCard } from "./primitives";
 
 export function RecommendedActionsCard({ actions }: { actions: RecommendedAction[] }) {
   const { t, locale } = useI18n();
@@ -13,7 +13,9 @@ export function RecommendedActionsCard({ actions }: { actions: RecommendedAction
 
   const resolve = (id: string, accepted: boolean) => {
     setResolved((r) => [...r, id]);
-    toast.success(accepted ? t("actions.accepted") : t("actions.dismissed"));
+    toast.success(accepted ? t("actions.accepted") : t("actions.dismissed"), {
+      description: t("actions.notSynced"),
+    });
   };
 
   return (
@@ -53,24 +55,26 @@ export function RecommendedActionsCard({ actions }: { actions: RecommendedAction
                         key={item.id}
                         className="rounded border border-border bg-card px-2 py-0.5 text-[11px] text-foreground"
                       >
-                        <span className="tabular-nums text-muted-foreground">#{item.id}</span>{" "}
+                        <Iso className="tabular-nums text-muted-foreground">#{item.id}</Iso>{" "}
                         {item.title[locale]}
                       </span>
                     ))}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button size="sm" onClick={() => resolve(action.id, true)}>
-                      <Check className="size-3.5" aria-hidden />
+                      <CalendarPlus className="size-3.5" aria-hidden />
                       {t("actions.accept")}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => resolve(action.id, false)}>
-                      <X className="size-3.5" aria-hidden />
+                      <EyeOff className="size-3.5" aria-hidden />
                       {t("actions.dismiss")}
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => toast.info(action.reason[locale])}
+                      onClick={() =>
+                        toast.info(action.reason[locale], { description: t("actions.notSynced") })
+                      }
                     >
                       <Search className="size-3.5" aria-hidden />
                       {t("actions.inspect")}
