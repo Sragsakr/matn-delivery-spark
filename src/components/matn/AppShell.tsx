@@ -73,7 +73,8 @@ function BrandMark({ compact }: { compact?: boolean }) {
 }
 
 function NavList({ compact, onNavigate }: { compact?: boolean; onNavigate?: () => void }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const tipSide = locale === "ar" ? "left" : "right";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   return (
     <nav className="flex flex-col gap-1 px-2" aria-label={t("shell.menu")}>
@@ -102,7 +103,7 @@ function NavList({ compact, onNavigate }: { compact?: boolean; onNavigate?: () =
         return (
           <Tooltip key={item.to}>
             <TooltipTrigger asChild>{link}</TooltipTrigger>
-            <TooltipContent side="inline-end">{t(item.key as TKey)}</TooltipContent>
+            <TooltipContent side={tipSide}>{t(item.key as TKey)}</TooltipContent>
           </Tooltip>
         );
       })}
@@ -173,7 +174,8 @@ function useScopeLabels() {
 
 /** Collapsed-sidebar workspace context: icon trigger plus a descriptive tooltip. */
 function CollapsedScope({ onExpand }: { onExpand: () => void }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const tipSide = locale === "ar" ? "left" : "right";
   const scope = useScopeLabels();
   const label = `${t("shell.project")}: ${scope.project} · ${t("shell.sprint")}: ${scope.sprint}`;
   return (
@@ -190,7 +192,7 @@ function CollapsedScope({ onExpand }: { onExpand: () => void }) {
             <Building2 className="size-4" aria-hidden />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="inline-end" className="max-w-56 text-xs">
+        <TooltipContent side={tipSide} className="max-w-56 text-xs">
           <span className="block font-medium">{t("brand.workspace")}</span>
           <span className="block">{t("shell.organization")}: {scope.organization}</span>
           <span className="block">{t("shell.project")}: {scope.project}</span>
