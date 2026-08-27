@@ -10,14 +10,26 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as DeliveryRouteImport } from './routes/delivery'
 import { Route as EngineeringRouteImport } from './routes/engineering'
 import { Route as IntelligenceRouteImport } from './routes/intelligence'
 import { Route as TeamRouteImport } from './routes/team'
+import { Route as AuthenticatedSettingsAzureRouteImport } from './routes/_authenticated/settings.azure'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DeliveryRoute = DeliveryRouteImport.update({
@@ -40,40 +52,77 @@ const TeamRoute = TeamRouteImport.update({
   path: '/team',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedSettingsAzureRoute =
+  AuthenticatedSettingsAzureRouteImport.update({
+    id: '/settings/azure',
+    path: '/settings/azure',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/delivery': typeof DeliveryRoute
   '/engineering': typeof EngineeringRoute
   '/intelligence': typeof IntelligenceRoute
   '/team': typeof TeamRoute
+  '/settings/azure': typeof AuthenticatedSettingsAzureRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/delivery': typeof DeliveryRoute
   '/engineering': typeof EngineeringRoute
   '/intelligence': typeof IntelligenceRoute
   '/team': typeof TeamRoute
+  '/settings/azure': typeof AuthenticatedSettingsAzureRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
   '/delivery': typeof DeliveryRoute
   '/engineering': typeof EngineeringRoute
   '/intelligence': typeof IntelligenceRoute
   '/team': typeof TeamRoute
+  '/_authenticated/settings/azure': typeof AuthenticatedSettingsAzureRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/delivery' | '/engineering' | '/intelligence' | '/team'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/delivery'
+    | '/engineering'
+    | '/intelligence'
+    | '/team'
+    | '/settings/azure'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/delivery' | '/engineering' | '/intelligence' | '/team'
+  to:
+    | '/'
+    | '/auth'
+    | '/delivery'
+    | '/engineering'
+    | '/intelligence'
+    | '/team'
+    | '/settings/azure'
   id:
-    '__root__' | '/' | '/delivery' | '/engineering' | '/intelligence' | '/team'
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/delivery'
+    | '/engineering'
+    | '/intelligence'
+    | '/team'
+    | '/_authenticated/settings/azure'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
   DeliveryRoute: typeof DeliveryRoute
   EngineeringRoute: typeof EngineeringRoute
   IntelligenceRoute: typeof IntelligenceRoute
@@ -87,6 +136,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/delivery': {
@@ -117,11 +180,31 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeamRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/settings/azure': {
+      id: '/_authenticated/settings/azure'
+      path: '/settings/azure'
+      fullPath: '/settings/azure'
+      preLoaderRoute: typeof AuthenticatedSettingsAzureRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedSettingsAzureRoute: typeof AuthenticatedSettingsAzureRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedSettingsAzureRoute: AuthenticatedSettingsAzureRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
   DeliveryRoute: DeliveryRoute,
   EngineeringRoute: EngineeringRoute,
   IntelligenceRoute: IntelligenceRoute,
