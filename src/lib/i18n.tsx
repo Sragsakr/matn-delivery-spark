@@ -422,6 +422,11 @@ export const dictionary = {
   "azure.failed": { ar: "فشل", en: "Failed" },
   "azure.complete": { ar: "مكتمل", en: "Complete" },
   "azure.partial": { ar: "جزئي", en: "Partial" },
+  "azure.blocked": { ar: "محجوب", en: "Blocked" },
+  "azure.skippedBecause": {
+    ar: "تم التخطي لفشل مرحلة {domain}",
+    en: "Skipped because {domain} failed",
+  },
   "azure.freshness": { ar: "حداثة البيانات", en: "Freshness" },
   "azure.domain.organization": { ar: "المؤسسة", en: "Organization" },
   "azure.domain.projects": { ar: "المشاريع", en: "Projects" },
