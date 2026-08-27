@@ -22,8 +22,11 @@ export interface JobCursor {
 
 /** Per-domain scan progress over its parent scopes (projects / teams). */
 export interface ScopeTally {
+  readonly expected: number;
   readonly attempted: number;
   readonly completed: number;
+  readonly failed: number;
+  readonly remainingContinuationTokens: number;
 }
 
 export type DomainStatus = "complete" | "partial" | "failed" | "blocked";
@@ -38,8 +41,18 @@ export type DomainStatus = "complete" | "partial" | "failed" | "blocked";
  */
 export function domainStatus(counts: DomainCounts, tally?: ScopeTally): DomainStatus {
   if (counts.blocked) return "blocked";
-  const incompleteScopes = tally ? Math.max(0, tally.attempted - tally.completed) : 0;
-  if (counts.failed === 0 && incompleteScopes === 0) return "complete";
+  const incompleteScopes = tally
+    ? Math.max(0, tally.expected - tally.completed, tally.attempted - tally.completed)
+    : 0;
+  if (
+    counts.failed === 0 &&
+    (!tally || (
+      tally.attempted === tally.expected &&
+      tally.completed === tally.expected &&
+      tally.failed === 0 &&
+      tally.remainingContinuationTokens === 0
+    ))
+  ) return "complete";
   const hasSuccess =
     counts.inserted + counts.updated + counts.unchanged > 0 || (tally ? tally.completed > 0 : false);
   return hasSuccess ? "partial" : "failed";
@@ -56,7 +69,7 @@ export function finalizeScopedDomain(
   return {
     counts: { ...counts, complete, freshnessAt: complete ? (counts.freshnessAt ?? nowIso) : counts.freshnessAt },
     status,
-    incompleteScopes: Math.max(0, tally.attempted - tally.completed),
+    incompleteScopes: Math.max(0, tally.expected - tally.completed, tally.attempted - tally.completed),
   };
 }
 

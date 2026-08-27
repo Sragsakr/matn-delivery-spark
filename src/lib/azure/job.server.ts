@@ -73,6 +73,14 @@ interface WorkingState {
   error: SyncRunReport["error"];
 }
 
+type TeamReader = typeof readProjectTeams;
+
+export interface AdvanceJobOptions {
+  readonly maxUnits?: number;
+  readonly stopAfterDomain?: SyncDomain;
+  readonly readTeams?: TeamReader;
+}
+
 const toState = (w: WorkingState): JobState => ({
   runId: w.runId,
   status: w.status,
@@ -124,14 +132,31 @@ const add = (state: WorkingState, domain: SyncDomain, key: keyof DomainCounts, v
   bump(state, domain, { [key]: (current[key] as number) + value } as Partial<Mutable<DomainCounts>>);
 };
 
-const tally = (state: WorkingState, domain: SyncDomain): ScopeTally =>
-  state.scopes[domain] ?? { attempted: 0, completed: 0 };
+const tally = (state: WorkingState, domain: SyncDomain): ScopeTally => {
+  const stored = state.scopes[domain];
+  return {
+    expected: stored?.expected ?? 0,
+    attempted: stored?.attempted ?? 0,
+    completed: stored?.completed ?? 0,
+    failed: stored?.failed ?? 0,
+    remainingContinuationTokens: stored?.remainingContinuationTokens ?? 0,
+  };
+};
 
-const recordScope = (state: WorkingState, domain: SyncDomain, completed: boolean): void => {
+const recordScope = (
+  state: WorkingState,
+  domain: SyncDomain,
+  expected: number,
+  completed: boolean,
+  hasContinuation = false,
+): void => {
   const current = tally(state, domain);
   state.scopes[domain] = {
+    expected,
     attempted: current.attempted + 1,
     completed: current.completed + (completed ? 1 : 0),
+    failed: current.failed + (completed ? 0 : 1),
+    remainingContinuationTokens: current.remainingContinuationTokens + (hasContinuation ? 1 : 0),
   };
 };
 
@@ -154,7 +179,7 @@ function finalizeDomain(state: WorkingState, domain: SyncDomain, nowIso: string)
 
 async function checkpoint(tenantId: string, state: WorkingState): Promise<void> {
   const snapshot = toState(state);
-  await supabaseAdmin
+  const { error } = await supabaseAdmin
     .from("ops_sync_runs")
     .update({
       status: state.status,
@@ -167,6 +192,22 @@ async function checkpoint(tenantId: string, state: WorkingState): Promise<void> 
     })
     .eq("tenant_id", tenantId)
     .eq("id", state.runId);
+  if (error) throw new AzureDevOpsError("unknown");
+}
+
+async function reloadState(tenantId: string, runId: string): Promise<WorkingState> {
+  const { data, error } = await supabaseAdmin
+    .from("ops_sync_runs")
+    .select("details")
+    .eq("tenant_id", tenantId)
+    .eq("id", runId)
+    .single();
+  if (error || !data) throw new AzureDevOpsError("unknown");
+  return fromState(data.details as unknown as JobState);
+}
+
+function replaceState(target: WorkingState, source: WorkingState): void {
+  Object.assign(target, source);
 }
 
 async function tombstone(
@@ -309,6 +350,7 @@ export async function advanceFoundationJob(
   runId: string,
   client: AzureDevOpsClient,
   budgetMs = ADVANCE_BUDGET_MS,
+  options: AdvanceJobOptions = {},
 ): Promise<JobState> {
   const { data: row } = await supabaseAdmin
     .from("ops_sync_runs")
@@ -336,10 +378,29 @@ export async function advanceFoundationJob(
     .is("released_at", null);
 
   try {
+    let units = 0;
     while (state.cursor && Date.now() < deadline) {
-      const more = await runUnit(tenantId, organizationId, state, client);
-      state.cursor = nextCursor(state.cursor, more);
-      await checkpoint(tenantId, state);
+      const activeCursor = state.cursor;
+      const more = await runUnit(tenantId, organizationId, state, client, options.readTeams ?? readProjectTeams);
+
+      // A scoped domain boundary is a two-step durable transition: first store
+      // the final scope facts, then reload those facts and derive completion.
+      // This prevents an in-memory flag or a later generic checkpoint from
+      // overwriting the persisted final result.
+      if (!more && activeCursor.domain === "teams") {
+        await checkpoint(tenantId, state);
+        const persisted = await reloadState(tenantId, runId);
+        finalizeDomain(persisted, "teams", new Date().toISOString());
+        persisted.cursor = nextCursor(activeCursor, false);
+        await checkpoint(tenantId, persisted);
+        replaceState(state, persisted);
+      } else {
+        state.cursor = nextCursor(activeCursor, more);
+        await checkpoint(tenantId, state);
+      }
+      units += 1;
+      if (options.stopAfterDomain === activeCursor.domain && !more) break;
+      if (options.maxUnits !== undefined && units >= options.maxUnits) break;
     }
   } catch (error) {
     state.error = toAzureFailure(error);
@@ -425,6 +486,7 @@ async function runUnit(
   organizationId: string,
   state: WorkingState,
   client: AzureDevOpsClient,
+  readTeams: TeamReader,
 ): Promise<boolean> {
   const cursor = state.cursor!;
   const nowIso = new Date().toISOString();
@@ -541,7 +603,7 @@ async function runUnit(
     }
 
     // Bounded, project-id addressed read; partial pages are preserved.
-    const read = await readProjectTeams({
+    const read = await readTeams({
       organization: state.organization,
       pat: process.env["AZURE_DEVOPS_PAT"] ?? null,
       azureProjectId: project.azure_project_id,
@@ -628,9 +690,14 @@ async function runUnit(
       add(state, "teams", "missing", missing);
     }
     bump(state, "teams", { freshnessAt: nowIso });
-    recordScope(state, "teams", failedHere === 0 && read.status === "complete");
+    recordScope(
+      state,
+      "teams",
+      projects.length,
+      failedHere === 0 && read.status === "complete",
+      read.status === "partial",
+    );
     const moreProjects = cursor.index + 1 < projects.length;
-    if (!moreProjects) finalizeDomain(state, "teams", nowIso);
     return moreProjects;
   }
 
@@ -719,8 +786,8 @@ async function runUnit(
       state.warnings.push(`iterations_incomplete:${team.azure_team_id}`);
       scopeOk = false;
     }
-    recordScope(state, "iterations", scopeOk);
-    recordScope(state, "teamIterations", scopeOk);
+    recordScope(state, "iterations", teams.length, scopeOk);
+    recordScope(state, "teamIterations", teams.length, scopeOk);
     const moreTeams = cursor.index + 1 < teams.length;
     if (!moreTeams) {
       finalizeDomain(state, "iterations", nowIso);
@@ -842,8 +909,8 @@ async function runUnit(
       state.warnings.push(`members_incomplete:${team.azure_team_id}`);
       memberScopeOk = false;
     }
-    recordScope(state, "members", memberScopeOk);
-    recordScope(state, "teamMemberships", memberScopeOk);
+    recordScope(state, "members", teams.length, memberScopeOk);
+    recordScope(state, "teamMemberships", teams.length, memberScopeOk);
     const moreMemberTeams = cursor.index + 1 < teams.length;
     if (!moreMemberTeams) {
       finalizeDomain(state, "members", nowIso);

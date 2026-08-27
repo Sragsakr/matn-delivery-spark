@@ -418,6 +418,7 @@ export const dictionary = {
   "azure.discovered": { ar: "مقروء", en: "Read" },
   "azure.inserted": { ar: "مضاف", en: "Inserted" },
   "azure.updated": { ar: "محدّث", en: "Updated" },
+  "azure.unchanged": { ar: "دون تغيير", en: "Unchanged" },
   "azure.missing": { ar: "مفقود", en: "Missing" },
   "azure.failed": { ar: "فشل", en: "Failed" },
   "azure.complete": { ar: "مكتمل", en: "Complete" },
