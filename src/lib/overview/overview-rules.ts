@@ -81,7 +81,9 @@ export type UnavailableReasonCode =
   | "no_work_items"
   | "no_sprint_dates"
   | "no_baseline_snapshot"
+  | "baseline_same_day"
   | "no_estimates"
+  | "insufficient_coverage"
   | "not_synchronized";
 
 export interface OverviewResult {
@@ -278,17 +280,24 @@ export function computeTeamLoad(
     .map((member) => {
       const items = assigned.get(member.id) ?? [];
       const active = items.filter((f) => ACTIVE_CATEGORIES.includes(f.stateCategory));
-      const assignedHours = items.reduce((sum, f) => sum + (f.estimate ?? 0), 0);
-      const capacityHours = member.capacityHours ?? 0;
-      const ratio = capacityHours > 0 ? assignedHours / capacityHours : null;
+      // Effort is only reportable when at least one assigned item carries an estimate.
+      const estimated = items.filter((f) => typeof f.estimate === "number" && f.estimate > 0);
+      const assignedHours =
+        estimated.length > 0 ? round(estimated.reduce((sum, f) => sum + (f.estimate ?? 0), 0)) : null;
+      const capacityHours =
+        typeof member.capacityHours === "number" && member.capacityHours > 0
+          ? member.capacityHours
+          : null;
+      const ratio =
+        capacityHours !== null && assignedHours !== null ? assignedHours / capacityHours : null;
       const signal: TeamMemberLoad["signal"] =
-        ratio === null ? "balanced" : ratio > 1.1 ? "over" : ratio < 0.6 ? "under" : "balanced";
+        ratio === null ? "unknown" : ratio > 1.1 ? "over" : ratio < 0.6 ? "under" : "balanced";
       return {
         id: member.id,
         name: member.displayName,
         role: { ar: "", en: "" },
         capacityHours,
-        assignedHours: round(assignedHours),
+        assignedHours,
         activeItems: active.length,
         blockedItems: active.filter((f) => f.isBlocked).length,
         signal,
