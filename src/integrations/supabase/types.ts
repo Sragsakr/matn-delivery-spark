@@ -3576,8 +3576,10 @@ export type Database = {
         Args: { target_team_id: string; target_tenant_id: string }
         Returns: boolean
       }
-      current_core_user_id: { Args: never; Returns: string }
-      current_tenant_id: { Args: never; Returns: string }
+      current_core_user_id: {
+        Args: { target_tenant_id: string }
+        Returns: string
+      }
       grant_project_scope: {
         Args: {
           _expires_at?: string
@@ -3611,7 +3613,10 @@ export type Database = {
         Returns: boolean
       }
       has_role: {
-        Args: { target_role: Database["public"]["Enums"]["app_role"] }
+        Args: {
+          target_role: Database["public"]["Enums"]["app_role"]
+          target_tenant_id: string
+        }
         Returns: boolean
       }
       has_team_access: {
@@ -3622,8 +3627,17 @@ export type Database = {
         Args: { target_tenant_id: string }
         Returns: boolean
       }
-      is_platform_admin: { Args: never; Returns: boolean }
-      remove_demo_tenant: { Args: never; Returns: undefined }
+      is_own_member_record: {
+        Args: { target_member_id: string; target_tenant_id: string }
+        Returns: boolean
+      }
+      is_tenant_admin: { Args: { target_tenant_id: string }; Returns: boolean }
+      is_tenant_platform_admin: {
+        Args: { target_tenant_id: string }
+        Returns: boolean
+      }
+      purge_ci_tenant: { Args: { _tenant_id: string }; Returns: number }
+      remove_demo_tenant: { Args: never; Returns: number }
       seed_demo_tenant: { Args: never; Returns: string }
       write_audit_event: {
         Args: {
