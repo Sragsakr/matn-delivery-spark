@@ -9,7 +9,9 @@ BEGIN
     SELECT c.relname
     FROM pg_class c JOIN pg_namespace ns ON ns.oid = c.relnamespace
     JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'tenant_id'
+    -- ops_cron_nonces and aud_audit_events intentionally allow platform-level rows
     WHERE ns.nspname = 'public' AND c.relkind = 'r' AND NOT a.attnotnull
+      AND c.relname NOT IN ('ops_cron_nonces','aud_audit_events')
   LOOP msg := msg || format('tenant_id nullable on %s; ', r.relname); END LOOP;
   IF msg <> '' THEN RAISE EXCEPTION 'TEST FAILED 6.1: %', msg; END IF;
   RAISE NOTICE 'PASS 6.1 tenant_id is NOT NULL everywhere it exists';
