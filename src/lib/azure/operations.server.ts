@@ -17,11 +17,13 @@ import {
   writeAudit,
   type TenantContext,
 } from "./authz.server";
-import { ensureConnection, ensureOrganization, runFoundationSync } from "./sync.server";
+import { ensureConnection, ensureOrganization } from "./sync.server";
+import { discoverAzureProjectsBounded } from "./discovery.server";
+import type { JobState } from "./job-rules";
 import type {
   ConnectionStatus,
   ConnectionValidationResult,
-  DiscoveredProject,
+  ProjectDiscoveryResult,
   SyncDomain,
   SyncRunReport,
   SyncStatusResult,
@@ -193,60 +195,87 @@ export async function validateConnection(
 export async function discoverProjects(
   authUserId: string,
   tenantId: string | null,
-): Promise<{ projects: DiscoveredProject[]; error: SyncRunReport["error"] }> {
+): Promise<ProjectDiscoveryResult> {
   const ctx = await context(authUserId, tenantId);
   assertCanRunSync(ctx);
-  if (!hasAzureSecrets()) {
-    return { projects: [], error: new AzureDevOpsError("not_configured").toFailure() };
-  }
-  try {
-    const projects = await AzureDevOpsClient.fromEnvironment().listProjects();
-    await writeAudit({
-      tenantId: ctx.tenantId,
-      actorUserId: ctx.coreUserId,
-      action: "azure.projects.discover",
-      entityType: "project",
-      outcome: "success",
-      metadata: { count: projects.length },
-    });
-    return {
-      projects: projects.map((project) => ({
-        azureProjectId: project.id,
-        name: project.name,
-        state: project.state,
-        visibility: project.visibility ?? null,
-        lastUpdateTime: project.lastUpdateTime ?? null,
-      })),
-      error: null,
-    };
-  } catch (error) {
-    return { projects: [], error: toAzureFailure(error) };
-  }
+  const result = await discoverAzureProjectsBounded({
+    organization: process.env["AZURE_DEVOPS_ORGANIZATION"] ?? null,
+    pat: process.env["AZURE_DEVOPS_PAT"] ?? null,
+  });
+  await writeAudit({
+    tenantId: ctx.tenantId,
+    actorUserId: ctx.coreUserId,
+    action: "azure.projects.discover",
+    entityType: "project",
+    outcome: result.status === "failed" ? "failure" : "success",
+    metadata: {
+      status: result.status,
+      count: result.projectCount,
+      pages: result.pagesFetched,
+      elapsedMs: result.elapsedMs,
+      warning: result.warning,
+    },
+  });
+  return result;
 }
 
-export async function startFoundationSync(authUserId: string, tenantId: string | null): Promise<SyncRunReport> {
+export async function startFoundationSync(authUserId: string, tenantId: string | null): Promise<JobState> {
   const ctx = await context(authUserId, tenantId);
   assertCanRunSync(ctx);
   const org = organizationName();
   if (!hasAzureSecrets() || !org) throw new AzureDevOpsError("not_configured");
 
-  const report = await runFoundationSync({
+  const { startFoundationJob } = await import("./job.server");
+  const { state, reused } = await startFoundationJob({
     tenantId: ctx.tenantId,
     actorUserId: ctx.coreUserId,
     organizationName: org,
-    client: AzureDevOpsClient.fromEnvironment(),
   });
 
   await writeAudit({
     tenantId: ctx.tenantId,
     actorUserId: ctx.coreUserId,
-    action: "azure.sync.foundation",
+    action: "azure.sync.foundation.start",
     entityType: "sync_run",
-    entityId: report.runId,
-    outcome: report.status === "succeeded" ? "success" : report.status === "skipped" ? "noop" : "failure",
-    correlationId: report.runId,
-    metadata: { status: report.status, totals: report.totals },
+    entityId: state.runId,
+    outcome: reused ? "noop" : "success",
+    correlationId: state.runId,
+    metadata: { status: state.status, reused },
   });
 
-  return report;
+  return state;
+}
+
+/** Advances an active run by one bounded slice; safe to call repeatedly. */
+export async function advanceFoundationSync(
+  authUserId: string,
+  tenantId: string | null,
+  runId: string,
+): Promise<JobState> {
+  const ctx = await context(authUserId, tenantId);
+  assertCanRunSync(ctx);
+  if (!hasAzureSecrets()) throw new AzureDevOpsError("not_configured");
+  const { advanceFoundationJob } = await import("./job.server");
+  return advanceFoundationJob(ctx.tenantId, runId, AzureDevOpsClient.fromEnvironment());
+}
+
+/** Cancels an active run and frees its lock. */
+export async function cancelFoundationSync(
+  authUserId: string,
+  tenantId: string | null,
+  runId: string,
+): Promise<void> {
+  const ctx = await context(authUserId, tenantId);
+  assertCanRunSync(ctx);
+  const { cancelFoundationJob } = await import("./job.server");
+  await cancelFoundationJob(ctx.tenantId, runId);
+  await writeAudit({
+    tenantId: ctx.tenantId,
+    actorUserId: ctx.coreUserId,
+    action: "azure.sync.foundation.cancel",
+    entityType: "sync_run",
+    entityId: runId,
+    outcome: "success",
+    correlationId: runId,
+  });
 }

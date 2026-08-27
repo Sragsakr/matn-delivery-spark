@@ -1,5 +1,5 @@
 /** Client-safe DTOs returned by the Azure DevOps server operations. */
-import type { AzureFailure } from "./errors";
+import type { AzureErrorCode, AzureFailure } from "./errors";
 
 export type ConnectionStatus = "unconfigured" | "pending" | "connected" | "error" | "disabled";
 
@@ -44,9 +44,23 @@ export interface ConnectionValidationResult {
 export interface DiscoveredProject {
   readonly azureProjectId: string;
   readonly name: string;
+  readonly description: string | null;
   readonly state: string;
   readonly visibility: string | null;
   readonly lastUpdateTime: string | null;
+}
+
+export type DiscoveryStatus = "complete" | "partial" | "failed";
+
+/** Sanitized discovery envelope: counts, timing and a warning code only. */
+export interface ProjectDiscoveryResult {
+  readonly status: DiscoveryStatus;
+  readonly projects: readonly DiscoveredProject[];
+  readonly projectCount: number;
+  readonly pagesFetched: number;
+  readonly elapsedMs: number;
+  readonly warning: AzureErrorCode | null;
+  readonly error: AzureFailure | null;
 }
 
 export type SyncDomain =

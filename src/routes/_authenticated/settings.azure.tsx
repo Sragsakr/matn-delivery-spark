@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -10,11 +11,13 @@ import { Badge } from "@/components/ui/badge";
 import {
   discoverAzureProjects,
   getAzureSyncStatus,
-  runAzureFoundationSync,
+  startAzureFoundationSync,
+  advanceAzureFoundationSync,
+  cancelAzureFoundationSync,
   validateAzureConnection,
 } from "@/lib/azure/azure.functions";
+import { deriveAzureUiState } from "@/lib/azure/ui-state";
 import { SYNC_DOMAINS, type SyncDomain, type SyncRunReport } from "@/lib/azure/contracts";
-import type { AzureFailure } from "@/lib/azure/errors";
 
 export const Route = createFileRoute("/_authenticated/settings/azure")({
   head: () => ({
@@ -35,8 +38,6 @@ export const Route = createFileRoute("/_authenticated/settings/azure")({
   }),
   component: AzureSettingsPage,
 });
-
-const errorKey = (failure: AzureFailure): TKey => `azure.error.${failure.code}` as TKey;
 
 function StatusBadge({ status }: { status: string }) {
   const { t } = useI18n();
@@ -105,7 +106,10 @@ function AzureSettingsPage() {
   const fetchStatus = useServerFn(getAzureSyncStatus);
   const validate = useServerFn(validateAzureConnection);
   const discover = useServerFn(discoverAzureProjects);
-  const sync = useServerFn(runAzureFoundationSync);
+  const startSync = useServerFn(startAzureFoundationSync);
+  const advanceSync = useServerFn(advanceAzureFoundationSync);
+  const cancelSync = useServerFn(cancelAzureFoundationSync);
+  const [runId, setRunId] = useState<string | null>(null);
 
   const statusQuery = useQuery({
     queryKey: ["azure", "status"],
@@ -118,14 +122,47 @@ function AzureSettingsPage() {
   });
   const discoverMutation = useMutation({ mutationFn: () => discover({ data: { tenantId: null } }) });
   const syncMutation = useMutation({
-    mutationFn: () => sync({ data: { tenantId: null } }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["azure", "status"] }),
+    mutationFn: () => startSync({ data: { tenantId: null } }),
+    onSuccess: (state) => {
+      setRunId(state.runId);
+      void queryClient.invalidateQueries({ queryKey: ["azure", "status"] });
+    },
+  });
+
+  // The interactive request only starts the job; progress is made by short,
+  // checkpointed advance calls driven from here.
+  const jobQuery = useQuery({
+    queryKey: ["azure", "job", runId],
+    enabled: Boolean(runId),
+    queryFn: () => advanceSync({ data: { tenantId: null, runId: runId! } }),
+    refetchInterval: (query) => {
+      const state = query.state.data;
+      return state && (state.status === "queued" || state.status === "running") ? 1500 : false;
+    },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: () => cancelSync({ data: { tenantId: null, runId: runId! } }),
+    onSuccess: () => {
+      setRunId(null);
+      void queryClient.invalidateQueries({ queryKey: ["azure", "status"] });
+    },
   });
 
   const status = statusQuery.data;
+  const job = jobQuery.data ?? syncMutation.data ?? null;
   const busy = validateMutation.isPending || discoverMutation.isPending || syncMutation.isPending;
-  const report = syncMutation.data ?? status?.lastRun ?? null;
-  const failure = validateMutation.data?.error ?? discoverMutation.data?.error ?? report?.error ?? null;
+  const jobActive = Boolean(job && (job.status === "queued" || job.status === "running"));
+  const report = job ?? status?.lastRun ?? null;
+
+  const ui = deriveAzureUiState({
+    statusConnection: status?.connectionStatus ?? "unconfigured",
+    validation: validateMutation.data ?? null,
+    discovery: discoverMutation.data ?? null,
+    discoveryFailed: discoverMutation.isError,
+    sync: report,
+    syncFailed: syncMutation.isError,
+  });
 
   return (
     <AppShell>
@@ -143,7 +180,7 @@ function AzureSettingsPage() {
                 {t("azure.organization")}: <Iso>{status?.organization ?? "—"}</Iso>
               </CardDescription>
             </div>
-            <StatusBadge status={status?.connectionStatus ?? "unconfigured"} />
+            <StatusBadge status={ui.connectionStatus} />
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
@@ -160,9 +197,24 @@ function AzureSettingsPage() {
             {status?.activeRun ? (
               <p role="status" className="rounded-md bg-muted p-3 text-sm">{t("azure.activeRun")}</p>
             ) : null}
-            {failure ? (
+            {ui.connectionError ? (
               <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                {t(errorKey(failure))}
+                {t(`azure.error.${ui.connectionError}` as TKey)}
+              </p>
+            ) : null}
+            {ui.discoveryError ? (
+              <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {t("azure.discoveryFailed")}: {t(`azure.error.${ui.discoveryError}` as TKey)}
+              </p>
+            ) : null}
+            {ui.syncError ? (
+              <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {t(`azure.error.${ui.syncError}` as TKey)}
+              </p>
+            ) : null}
+            {job ? (
+              <p role="status" className="rounded-md bg-muted p-3 text-sm">
+                {t(`azure.run.${job.status}` as TKey)}
               </p>
             ) : null}
             {report ? (
@@ -186,31 +238,41 @@ function AzureSettingsPage() {
               <Button
                 variant="outline"
                 onClick={() => syncMutation.mutate()}
-                disabled={busy || !status?.canSync || Boolean(status?.activeRun)}
+                disabled={busy || jobActive || !status?.canSync}
               >
-                {syncMutation.isPending ? t("azure.running") : t("azure.sync")}
+                {syncMutation.isPending || jobActive ? t("azure.running") : t("azure.sync")}
               </Button>
+              {jobActive ? (
+                <Button variant="ghost" onClick={() => cancelMutation.mutate()} disabled={cancelMutation.isPending}>
+                  {t("azure.cancel")}
+                </Button>
+              ) : null}
             </div>
           </CardContent>
         </Card>
 
-        {discoverMutation.data ? (
+        {discoverMutation.data && !ui.discoveryError ? (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">{t("azure.projects")}</CardTitle>
             </CardHeader>
             <CardContent>
-              {discoverMutation.data.projects.length === 0 ? (
+              {ui.showEmptyProjects ? (
                 <p className="text-sm text-muted-foreground">{t("azure.projectsEmpty")}</p>
               ) : (
-                <ul className="grid gap-2 sm:grid-cols-2">
-                  {discoverMutation.data.projects.map((project) => (
-                    <li key={project.azureProjectId} className="rounded-md border border-border/60 p-3 text-sm">
-                      <span className="font-medium"><Iso>{project.name}</Iso></span>
-                      <span className="block text-xs text-muted-foreground"><Iso>{project.state}</Iso></span>
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  {ui.showPartialDiscovery ? (
+                    <p role="status" className="mb-3 rounded-md bg-muted p-3 text-sm">{t("azure.discoveryPartial")}</p>
+                  ) : null}
+                  <ul className="grid gap-2 sm:grid-cols-2">
+                    {discoverMutation.data.projects.map((project) => (
+                      <li key={project.azureProjectId} className="rounded-md border border-border/60 p-3 text-sm">
+                        <span className="font-medium"><Iso>{project.name}</Iso></span>
+                        <span className="block text-xs text-muted-foreground"><Iso>{project.state}</Iso></span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
               )}
             </CardContent>
           </Card>

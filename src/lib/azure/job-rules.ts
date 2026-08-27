@@ -1,0 +1,95 @@
+/**
+ * Pure, dependency-free rules for the resumable foundation sync job.
+ * Everything here is deterministic so it can be unit-tested without Azure or the database.
+ */
+import { SYNC_DOMAINS, type DomainCounts, type SyncDomain, type SyncRunReport } from "./contracts";
+
+/** The order in which domains are processed and checkpointed. */
+export const JOB_DOMAIN_ORDER: readonly SyncDomain[] = SYNC_DOMAINS;
+
+/** Domains advanced by the same work unit (one team pass covers both). */
+export const PAIRED_DOMAINS: Partial<Record<SyncDomain, SyncDomain>> = {
+  iterations: "teamIterations",
+  members: "teamMemberships",
+};
+
+export interface JobCursor {
+  /** Domain currently being processed. */
+  readonly domain: SyncDomain;
+  /** Zero-based index of the next work unit inside that domain. */
+  readonly index: number;
+}
+
+export interface JobState extends SyncRunReport {
+  readonly cursor: JobCursor | null;
+  /** Domains that finished a full successful scan and may be tombstoned. */
+  readonly scannedDomains: readonly SyncDomain[];
+}
+
+/** Time budget for one interactive advance call; well under the hosting deadline. */
+export const ADVANCE_BUDGET_MS = 15_000;
+/** A run whose lock has not been refreshed within this window is considered stale. */
+export const LOCK_TTL_MS = 30 * 60_000;
+/** A queued/running run untouched for this long is expired and can be reclaimed. */
+export const RUN_STALE_MS = 10 * 60_000;
+
+export const initialCursor = (): JobCursor => ({ domain: "organization", index: 0 });
+
+/** Advances to the next work unit, or to the next domain when the current one is exhausted. */
+export function nextCursor(cursor: JobCursor, unitsRemaining: boolean): JobCursor | null {
+  if (unitsRemaining) return { domain: cursor.domain, index: cursor.index + 1 };
+  const position = JOB_DOMAIN_ORDER.indexOf(cursor.domain);
+  let next = position + 1;
+  // Paired domains are consumed by their driver domain and never scheduled alone.
+  const pairedTargets = new Set(Object.values(PAIRED_DOMAINS));
+  while (next < JOB_DOMAIN_ORDER.length && pairedTargets.has(JOB_DOMAIN_ORDER[next]!)) next += 1;
+  if (next >= JOB_DOMAIN_ORDER.length) return null;
+  return { domain: JOB_DOMAIN_ORDER[next]!, index: 0 };
+}
+
+/**
+ * Tombstones are only allowed after a domain reached the end of a complete,
+ * failure-free scan. Partial, timed-out or failed domains never tombstone.
+ */
+export function canTombstone(counts: Pick<DomainCounts, "failed" | "complete">, scanReachedEnd: boolean): boolean {
+  return scanReachedEnd && counts.complete && counts.failed === 0;
+}
+
+/** Derives the terminal status of a finished run from its per-domain counts. */
+export function deriveRunStatus(domains: Readonly<Record<SyncDomain, DomainCounts>>): SyncRunReport["status"] {
+  const anyComplete = JOB_DOMAIN_ORDER.some((d) => domains[d].complete);
+  const allComplete = JOB_DOMAIN_ORDER.every((d) => domains[d].complete);
+  if (allComplete) return "succeeded";
+  return anyComplete ? "partial" : "failed";
+}
+
+export interface ActiveRunSnapshot {
+  readonly runId: string;
+  readonly status: SyncRunStatusLike;
+  readonly heartbeatAt: string | null;
+  readonly expiresAt: string | null;
+}
+
+type SyncRunStatusLike = SyncRunReport["status"];
+
+export type StartDecision =
+  | { readonly kind: "reuse"; readonly runId: string }
+  | { readonly kind: "reclaim"; readonly runId: string }
+  | { readonly kind: "start" };
+
+/**
+ * Duplicate Start clicks must never create a second run: a live run is reused,
+ * a stale one is reclaimed, and only a clean slate starts fresh.
+ */
+export function decideStart(active: ActiveRunSnapshot | null, nowMs: number): StartDecision {
+  if (!active) return { kind: "start" };
+  if (active.status !== "queued" && active.status !== "running") return { kind: "start" };
+  const expired = active.expiresAt ? Date.parse(active.expiresAt) <= nowMs : false;
+  const beat = active.heartbeatAt ? Date.parse(active.heartbeatAt) : Number.NaN;
+  const stale = Number.isFinite(beat) ? nowMs - beat > RUN_STALE_MS : true;
+  if (expired || stale) return { kind: "reclaim", runId: active.runId };
+  return { kind: "reuse", runId: active.runId };
+}
+
+export const isLockExpired = (expiresAt: string | null, nowMs: number): boolean =>
+  expiresAt ? Date.parse(expiresAt) <= nowMs : true;
