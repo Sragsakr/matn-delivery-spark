@@ -122,3 +122,74 @@ immutability, and schema invariants (34 KPI definitions seeded).
 - Mapper implementations behind `src/data/mappers/` and the switch from mock to
   live dashboard reads.
 - Concurrency verification for grant functions under real parallel sessions.
+
+---
+
+# Phase 3.1 — Security correction pass (applied)
+
+Forward-only corrections on top of the applied Phase 3 foundation. No UI change,
+no Azure DevOps integration, no real-data mode, no credentials added, and no
+already-applied migration file was edited.
+
+## Correction migrations
+
+| # | Contents |
+| --- | --- |
+| 15 | Tenant-scoped identity: `UNIQUE (tenant_id, auth_user_id)` on `core_users`; `current_core_user_id(tenant_id)`, `has_role(tenant_id, role)`, `is_tenant_platform_admin(tenant_id)`, `is_own_member_record(tenant_id, member_id)`; `current_tenant_id()` and every ambiguous helper dropped; all RLS policies recreated passing the row's `tenant_id`; RLS forced and client writes revoked on every prefixed table |
+| 16 | Explicit demo lifecycle: hardened `remove_demo_tenant()` (matches deterministic id + `ci`/demo slug + `is_demo = true`), executed once to withdraw the Migration 14 auto-seed |
+| 17 | `dblink` for the test harness, revoked from `PUBLIC` / `anon` / `authenticated`, granted to `service_role` |
+| 18 | `purge_ci_tenant(uuid)` — service-role-only cleanup for `is_demo` tenants with the reserved `ci-` slug prefix |
+
+## Issue 1 — tenant-scoped identity
+
+The Phase 3 helpers resolved a `core_users` row from `auth.uid()` alone with
+`LIMIT 1`. With one auth account in two tenants that row was arbitrary, so a
+`tenant_admin` role held in tenant A could satisfy a policy evaluated against a
+tenant B row. Every identity helper now takes the row's tenant explicitly and
+every policy passes it. `platform_admin` stays **tenant-scoped (Model B)**:
+cross-tenant administration is an out-of-band service-role operation, never a
+browser session. See ADR-011.
+
+## Issue 2 — automatic demo seeding
+
+Migration 14 seeded a demo tenant as part of the production chain. Seeding is
+now an explicit, service-role-only development operation. `remove_demo_tenant()`
+deletes only when the id, the slug and `is_demo = true` all match, lifts the
+audit append-only trigger for the duration of the delete, and clears the
+non-cascading `granted_by_user_id` references. The production database contains
+zero demo tenants (asserted by invariant 6.12).
+
+## Member-detail authorization
+
+| Caller | Member rows and utilization |
+| --- | --- |
+| platform / tenant admin, delivery manager, team lead, QA release owner | full detail within their team scope |
+| contributor | their own member record and utilization only (`is_own_member_record`) |
+| executive viewer | aggregates only — no member rows |
+| non-member of the tenant | nothing |
+
+## Test results
+
+| Suite | Result |
+| --- | --- |
+| 01 tenant isolation | PASS |
+| 02 project integrity | PASS |
+| 03 roles and RLS | PASS |
+| 04 scope grants | PASS |
+| 05 immutability | PASS |
+| 06 schema invariants (12 checks, strict `search_path`, missing-`tenant_id` detection, forced RLS, no client writes) | PASS |
+| 07 cross-tenant identity regression (dual-tenant membership, role isolation, non-member denial) | PASS |
+| 08 scope-grant concurrency (two parallel transactions, `npm run db:test:concurrency`) | PASS |
+
+TypeScript typecheck: 0 errors. Production build: succeeds. Secret scan: no
+credentials in the repository; `SUPABASE_SERVICE_ROLE_KEY` is read from the
+environment by the concurrency script only and is never logged.
+
+## Remaining linter note
+
+Eight `SECURITY DEFINER` helpers remain executable by `authenticated`. This is
+deliberate and documented: RLS policies call them as the requesting user, they
+take the tenant explicitly, and they return only booleans or the caller's own
+identity. All privileged functions (`grant_*`, `seed_demo_tenant`,
+`remove_demo_tenant`, `purge_ci_tenant`, `write_audit_event`) are service-role
+only, asserted by invariant 6.5.
