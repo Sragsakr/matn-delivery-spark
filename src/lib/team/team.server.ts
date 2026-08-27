@@ -16,6 +16,8 @@ import {
   computeMemberRows,
   computeSummary,
   type TeamAccessLevel,
+  type TeamDataState,
+  type TeamPageContract,
   type TeamCalculationBasis,
   type TeamDistribution,
   type TeamMemberFact,
@@ -26,6 +28,8 @@ import {
   type TeamWorkItemRow,
 } from "./team-rules";
 
+export type { TeamPageContract, TeamDataState };
+
 const DETAIL_ROLES: readonly AppRole[] = [
   "platform_admin",
   "tenant_admin",
@@ -33,29 +37,6 @@ const DETAIL_ROLES: readonly AppRole[] = [
   "team_lead",
   "qa_release_owner",
 ];
-
-export type TeamDataState = "notSynced" | "current" | "partial" | "stale";
-
-export interface TeamPageContract {
-  readonly context: {
-    readonly organizationName: { readonly en: string; readonly ar: string };
-    readonly projectName: { readonly en: string; readonly ar: string };
-    readonly teamName: { readonly en: string; readonly ar: string };
-    readonly sprintName: { readonly en: string; readonly ar: string };
-    readonly sprintStartDate: string | null;
-    readonly sprintFinishDate: string | null;
-    readonly lastWorkItemSyncAt: string | null;
-    readonly mode: "real";
-    readonly dataState: TeamDataState;
-    readonly completeness: { readonly hasWorkItems: boolean; readonly hasMembers: boolean };
-  };
-  readonly accessLevel: TeamAccessLevel;
-  readonly summary: TeamSummary;
-  readonly members: readonly TeamMemberRow[];
-  readonly workItems: readonly TeamWorkItemRow[];
-  readonly distribution: TeamDistribution;
-  readonly basis: TeamCalculationBasis;
-}
 
 /** Role-driven visibility. Executive viewers are aggregate-only by design. */
 export function resolveAccessLevel(context: TenantContext): TeamAccessLevel {

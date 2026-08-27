@@ -293,3 +293,26 @@ export function reconcile(summary: TeamSummary, members: readonly TeamMemberRow[
   const assignedFromMembers = members.reduce((sum, m) => sum + m.assigned, 0);
   return assignedFromMembers + summary.unassignedItems === summary.totalItems;
 }
+
+export type TeamDataState = "notSynced" | "current" | "partial" | "stale";
+
+export interface TeamPageContract {
+  readonly context: {
+    readonly organizationName: { readonly en: string; readonly ar: string };
+    readonly projectName: { readonly en: string; readonly ar: string };
+    readonly teamName: { readonly en: string; readonly ar: string };
+    readonly sprintName: { readonly en: string; readonly ar: string };
+    readonly sprintStartDate: string | null;
+    readonly sprintFinishDate: string | null;
+    readonly lastWorkItemSyncAt: string | null;
+    readonly mode: "real";
+    readonly dataState: TeamDataState;
+    readonly completeness: { readonly hasWorkItems: boolean; readonly hasMembers: boolean };
+  };
+  readonly accessLevel: TeamAccessLevel;
+  readonly summary: TeamSummary;
+  readonly members: readonly TeamMemberRow[];
+  readonly workItems: readonly TeamWorkItemRow[];
+  readonly distribution: TeamDistribution;
+  readonly basis: TeamCalculationBasis;
+}
