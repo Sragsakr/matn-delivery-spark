@@ -14,6 +14,7 @@
     "db:types": "supabase gen types typescript --linked > src/integrations/supabase/types.ts",
     "db:test": "for f in supabase/tests/*.sql; do psql -v ON_ERROR_STOP=1 -f \"$f\"; done",
     "db:test:concurrency": "node scripts/concurrency-grant-test.mjs",
+    "db:test:bootstrap": "node scripts/bootstrap-concurrency-test.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
