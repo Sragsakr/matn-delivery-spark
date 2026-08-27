@@ -48,6 +48,22 @@ export type KpiId =
   | "blockers"
   | "release";
 
+/** Structured facts behind a real-mode KPI explanation. The browser formats
+ * these; it never invents numbers of its own. */
+export interface KpiExplanationFacts {
+  basis: "estimate" | "count" | "workingDays" | "components" | "none";
+  numerator: number | null;
+  denominator: number | null;
+  sprintDay: number | null;
+  totalWorkingDays: number | null;
+  availableComponents: string[];
+  missingComponents: string[];
+  comparisonValue: number | null;
+  coveragePercent: number | null;
+  blockerCount: number | null;
+  capacityAvailable: boolean;
+}
+
 export interface KpiMetric {
   id: KpiId;
   labelKey: string;
@@ -61,6 +77,10 @@ export interface KpiMetric {
   drivers: Localized[];
   relatedItems: WorkItemRef[];
   formula: Localized;
+  /** Interpolation values for `explanationKey`. Real mode always sets these. */
+  explanationVars?: Record<string, string | number>;
+  /** Structured facts that generated the explanation (real mode only). */
+  explanationFacts?: KpiExplanationFacts;
   /** When set, the metric has no trustworthy source: render N/A, never a value or status. */
   unavailable?: { reasonKey: string };
 }
