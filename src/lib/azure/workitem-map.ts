@@ -5,7 +5,7 @@
  * Identity/ownership columns are never part of an update payload, so the
  * internal UUID and the owning tenant/organization survive every re-sync.
  */
-import type { Database } from "@/integrations/supabase/types";
+import type { Database, Json } from "@/integrations/supabase/types";
 import type { StateCategory, WorkItemAlias } from "@/types/domain/work-item";
 import { aliasFor, stateCategoryFor, type ResolvedProcessMapping } from "./process-mapping";
 
@@ -59,7 +59,7 @@ export interface WorkItemMutablePayload {
   readonly is_leaf: boolean;
   readonly counts_toward_scope: boolean;
   readonly azure_url: string | null;
-  readonly custom_fields: Record<string, unknown>;
+  readonly custom_fields: Json;
   readonly source_status: Database["public"]["Enums"]["source_status"];
   readonly is_deleted: boolean;
 }

@@ -7,8 +7,9 @@
  * instead of restarting the sprint.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import type { Json } from "@/integrations/supabase/types";
 import { AzureDevOpsClient } from "./client.server";
-import { AzureDevOpsError, toFailure, type AzureFailure } from "./errors";
+import { AzureDevOpsError, toAzureFailure, type AzureFailure } from "./errors";
 import {
   buildIterationWiql,
   buildWorkItemsBatchBody,
@@ -77,7 +78,7 @@ async function checkpoint(
   await supabaseAdmin
     .from("ops_sync_runs")
     .update({
-      details: { cursor },
+      details: { cursor } as unknown as Json,
       items_read: cursor.ids.length,
       items_written: cursor.inserted + cursor.updated,
       error_count: cursor.failed,
@@ -128,7 +129,7 @@ export async function startWorkItemSync(
       status: "running",
       entity_kinds: ["work_items"],
       started_at: new Date().toISOString(),
-      details: { cursor, actor_user_id: actorUserId },
+      details: { cursor, actor_user_id: actorUserId } as unknown as Json,
     })
     .select("id, started_at")
     .single();
@@ -393,7 +394,7 @@ export async function advanceWorkItemSync(
       finishedAt: null,
     };
   } catch (error) {
-    const failure = toFailure(error);
+    const failure = toAzureFailure(error);
     await checkpoint(runId, cursor, {
       status: "failed",
       finished_at: new Date().toISOString(),
