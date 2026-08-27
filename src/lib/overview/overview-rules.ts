@@ -575,75 +575,83 @@ export function buildOverview(input: OverviewInput): OverviewResult {
     value: point.completedPercent,
   }));
 
+  // All six primary cards are always rendered, in display order. A card with no
+  // trustworthy source reports N/A and its reason instead of disappearing.
   const kpis: KpiMetric[] = [];
 
-  if (confidence.score !== null) {
-    kpis.push(
-      kpi(
-        "confidence",
-        confidence.score,
-        "percent",
-        statusFromPercent(confidence.score, 75, 55),
-        Math.round(confidence.coverage * 100),
-        [
+  kpis.push(
+    confidence.score !== null
+      ? kpi(
+          "confidence",
+          confidence.score,
+          "percent",
+          statusFromPercent(confidence.score, 75, 55),
+          Math.round(confidence.coverage * 100),
+          [
+            {
+              ar: `تغطية البيانات ${Math.round(confidence.coverage * 100)}%`,
+              en: `Data coverage ${Math.round(confidence.coverage * 100)}%`,
+            },
+          ],
           {
-            ar: `تغطية البيانات ${Math.round(confidence.coverage * 100)}%`,
-            en: `Data coverage ${Math.round(confidence.coverage * 100)}%`,
+            ar: "متوسط مرجّح للمكوّنات المتوفرة فقط",
+            en: "Weighted mean of available components only",
           },
-        ],
-        {
-          ar: "متوسط مرجّح للمكوّنات المتوفرة فقط",
-          en: "Weighted mean of available components only",
-        },
-        trendPoints,
-      ),
-    );
-  }
+          trendPoints,
+        )
+      : unavailableKpi("confidence", "percent", confidenceReason ?? "insufficient_coverage"),
+  );
 
-  if (scope.percent !== null) {
-    kpis.push(
-      kpi(
-        "scope",
-        scope.percent,
-        "percent",
-        expectedPercent === null
-          ? "neutral"
-          : statusFromPercent(scope.percent - expectedPercent + 100, 100, 90),
-        expectedPercent ?? 0,
-        [
+  kpis.push(
+    scope.percent !== null
+      ? kpi(
+          "scope",
+          scope.percent,
+          "percent",
+          expectedPercent === null
+            ? "neutral"
+            : statusFromPercent(scope.percent - expectedPercent + 100, 100, 90),
+          expectedPercent ?? 0,
+          [
+            scope.basis === "estimate"
+              ? {
+                  ar: `محسوب على التقديرات · ${scope.completed} من ${scope.total} نقطة`,
+                  en: `Estimate-weighted · ${scope.completed} of ${scope.total} points`,
+                }
+              : {
+                  ar: `محسوب على عدد العناصر · ${scope.completed} من ${scope.total} عنصر`,
+                  en: `Item-count based · ${scope.completed} of ${scope.total} items`,
+                },
+          ],
           scope.basis === "estimate"
-            ? { ar: "محسوب على التقديرات", en: "Estimate-weighted" }
-            : { ar: "محسوب على عدد العناصر", en: "Item-count based" },
-        ],
-        scope.basis === "estimate"
-          ? { ar: "التقديرات المكتملة ÷ إجمالي التقديرات", en: "Completed estimate ÷ total estimate" }
-          : { ar: "العناصر المكتملة ÷ إجمالي العناصر", en: "Completed items ÷ total items" },
-        trendPoints,
-        scoped.slice(0, 5).map(toRef),
-      ),
-    );
-  }
+            ? { ar: "التقديرات المكتملة ÷ إجمالي التقديرات", en: "Completed estimate ÷ total estimate" }
+            : { ar: "العناصر المكتملة ÷ إجمالي العناصر", en: "Completed items ÷ total items" },
+          trendPoints,
+          scoped.slice(0, 5).map(toRef),
+        )
+      : unavailableKpi("scope", "percent", "no_work_items"),
+  );
 
-  if (expectedPercent !== null && calendar) {
-    kpis.push(
-      kpi(
-        "expected",
-        expectedPercent,
-        "percent",
-        "neutral",
-        100,
-        [
-          {
-            ar: `اليوم ${calendar.currentWorkingDay} من ${calendar.totalWorkingDays}`,
-            en: `Day ${calendar.currentWorkingDay} of ${calendar.totalWorkingDays}`,
-          },
-        ],
-        { ar: "أيام العمل المنقضية ÷ إجمالي أيام العمل", en: "Elapsed working days ÷ total working days" },
-      ),
-    );
-  }
+  kpis.push(
+    expectedPercent !== null && calendar
+      ? kpi(
+          "expected",
+          expectedPercent,
+          "percent",
+          "neutral",
+          100,
+          [
+            {
+              ar: `اليوم ${calendar.currentWorkingDay} من ${calendar.totalWorkingDays}`,
+              en: `Day ${calendar.currentWorkingDay} of ${calendar.totalWorkingDays}`,
+            },
+          ],
+          { ar: "أيام العمل المنقضية ÷ إجمالي أيام العمل", en: "Elapsed working days ÷ total working days" },
+        )
+      : unavailableKpi("expected", "percent", "no_sprint_dates"),
+  );
 
-  if (baseline && baseline.scopeTotal > 0) {
+  if (baseline) {
     const delta = round(((scope.total - baseline.scopeTotal) / baseline.scopeTotal) * 100);
     kpis.push(
       kpi(
@@ -661,6 +669,8 @@ export function buildOverview(input: OverviewInput): OverviewResult {
         { ar: "(النطاق الحالي − خط الأساس) ÷ خط الأساس", en: "(current scope − baseline) ÷ baseline" },
       ),
     );
+  } else {
+    kpis.push(unavailableKpi("scopeChange", "delta", scopeChangeReason ?? "no_baseline_snapshot"));
   }
 
   kpis.push(
@@ -681,6 +691,10 @@ export function buildOverview(input: OverviewInput): OverviewResult {
       blockers.items.slice(0, 5).map(toRef),
     ),
   );
+
+  // Release readiness depends on builds, tests and deployments — none of which
+  // are synchronized in this phase, so it stays explicitly unavailable.
+  kpis.push(unavailableKpi("release", "percent", "not_synchronized"));
 
   unavailable["release"] = "not_synchronized";
   unavailable["engineering"] = "not_synchronized";
