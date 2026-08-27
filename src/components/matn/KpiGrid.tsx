@@ -52,20 +52,25 @@ function Sparkline({ values, status }: { values: number[]; status: KpiMetric["st
 
 function KpiCard({ kpi, onOpen, primary }: { kpi: KpiMetric; onOpen: () => void; primary?: boolean }) {
   const { t } = useI18n();
+  const na = !!kpi.unavailable;
   const diff = kpi.value - kpi.comparison.value;
   const DiffIcon = diff > 0 ? ArrowUpRight : diff < 0 ? ArrowDownRight : Minus;
-  const statusLabel =
-    kpi.id === "expected" ? t("status.onTrack") : t(statusKey[kpi.status]);
-  const statusTone = kpi.id === "expected" ? "healthy" : kpi.status;
+  const statusLabel = na
+    ? t("real.unavailable.title")
+    : kpi.id === "expected"
+      ? t("status.onTrack")
+      : t(statusKey[kpi.status]);
+  const statusTone = na ? "neutral" : kpi.id === "expected" ? "healthy" : kpi.status;
+  const valueText = na ? t("common.na") : formatValue(kpi);
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`${t(kpi.labelKey as TKey)} — ${formatValue(kpi)} — ${statusLabel}`}
+      aria-label={`${t(kpi.labelKey as TKey)} — ${valueText} — ${statusLabel}`}
       className={cn(
         "group flex flex-col gap-2 rounded-lg border bg-card p-3.5 text-start shadow-card transition-colors hover:border-azure/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        primary ? "border-azure/60 ring-1 ring-azure/25" : "border-border",
+        primary && !na ? "border-azure/60 ring-1 ring-azure/25" : "border-border",
       )}
     >
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
@@ -95,43 +100,48 @@ function KpiCard({ kpi, onOpen, primary }: { kpi: KpiMetric; onOpen: () => void;
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
         <span
           className={cn(
-            "font-semibold tabular-nums tracking-tight text-foreground",
-            primary ? "text-4xl" : "text-3xl",
+            "font-semibold tabular-nums tracking-tight",
+            na ? "text-muted-foreground" : "text-foreground",
+            primary && !na ? "text-4xl" : "text-3xl",
           )}
           dir="ltr"
         >
-          {formatValue(kpi)}
+          {valueText}
         </span>
         <StatusPill status={statusTone}>{statusLabel}</StatusPill>
       </div>
 
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-        <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-          <DiffIcon
-            className={cn(
-              "size-3.5 shrink-0",
-              diff === 0 ? "text-muted-foreground" : diff > 0 ? "text-success" : "text-critical",
-            )}
-            aria-hidden
-          />
-          <Iso className="tabular-nums">
-            {diff > 0 ? "+" : ""}
-            {diff}
-          </Iso>
-          <span className="truncate">
-            {kpi.comparison.kind === "previous" ? (
-              t("kpi.vsPrevious")
-            ) : (
-              <>
-                {t("kpi.target")} <Iso className="tabular-nums">{kpi.comparison.value}%</Iso>
-              </>
-            )}
+      {na ? null : (
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+          <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+            <DiffIcon
+              className={cn(
+                "size-3.5 shrink-0",
+                diff === 0 ? "text-muted-foreground" : diff > 0 ? "text-success" : "text-critical",
+              )}
+              aria-hidden
+            />
+            <Iso className="tabular-nums">
+              {diff > 0 ? "+" : ""}
+              {diff}
+            </Iso>
+            <span className="truncate">
+              {kpi.comparison.kind === "previous" ? (
+                t("kpi.vsPrevious")
+              ) : (
+                <>
+                  {t("kpi.target")} <Iso className="tabular-nums">{kpi.comparison.value}%</Iso>
+                </>
+              )}
+            </span>
           </span>
-        </span>
-        <span className="w-16 shrink-0">
-          <Sparkline values={kpi.trend.map((p) => p.value)} status={kpi.status} />
-        </span>
-      </div>
+          <span className="w-16 shrink-0">
+            {kpi.trend.length > 1 ? (
+              <Sparkline values={kpi.trend.map((p) => p.value)} status={kpi.status} />
+            ) : null}
+          </span>
+        </div>
+      )}
 
       <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">
         {t(kpi.explanationKey as TKey)}
