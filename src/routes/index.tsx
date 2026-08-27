@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Sparkles } from "lucide-react";
+import { RefreshCw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AppShell } from "@/components/matn/AppShell";
@@ -36,7 +36,12 @@ export const Route = createFileRoute("/")({
 
 function OverviewPage() {
   const { t, locale } = useI18n();
-  const { snapshot, iteration, loading, error, refresh } = useWorkspace();
+  const { snapshot, iteration, loading, error, refresh, mode, unavailable, syncing, syncMessage, runSync } =
+    useWorkspace();
+
+  const engineeringUnavailable = mode === "real" && Boolean(unavailable["engineering"]);
+  const noWorkItems = mode === "real" && Boolean(unavailable["workItems"]);
+  const noSprintDates = mode === "real" && Boolean(unavailable["sprintCalendar"]);
 
   return (
     <AppShell>
@@ -47,6 +52,9 @@ function OverviewPage() {
               <h1 className="min-w-0 text-lg font-semibold tracking-tight text-foreground sm:text-xl">
                 {t("overview.title")}
               </h1>
+              <span className="inline-flex items-center rounded-full border border-border bg-surface px-2 py-0.5 text-[11px] text-muted-foreground">
+                {mode === "real" ? t("real.mode.badge") : t("real.mode.mock")}
+              </span>
               {iteration ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-0.5 text-[11px] text-muted-foreground">
                   <span className="font-medium text-foreground">{iteration.name[locale]}</span>
@@ -59,16 +67,39 @@ function OverviewPage() {
             </div>
             <p className="mt-0.5 text-[13px] text-muted-foreground">{t("overview.subtitle")}</p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full min-h-11 shrink-0 sm:min-h-9 sm:w-auto"
-            onClick={() => toast.info(t("overview.copilotSoon"))}
-          >
-            <Sparkles className="size-3.5" aria-hidden />
-            {t("overview.askCopilot")}
-          </Button>
+          <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
+            {mode === "real" ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full min-h-11 shrink-0 sm:min-h-9 sm:w-auto"
+                disabled={syncing}
+                onClick={runSync}
+              >
+                <RefreshCw className={`size-3.5 ${syncing ? "animate-spin" : ""}`} aria-hidden />
+                {syncing ? t("real.sync.running") : t("real.sync.action")}
+              </Button>
+            ) : null}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full min-h-11 shrink-0 sm:min-h-9 sm:w-auto"
+              onClick={() => toast.info(t("overview.copilotSoon"))}
+            >
+              <Sparkles className="size-3.5" aria-hidden />
+              {t("overview.askCopilot")}
+            </Button>
+          </div>
         </header>
+
+        {syncMessage ? <Notice tone="warning" title={t("state.error.title")} body={syncMessage} /> : null}
+        {noWorkItems ? (
+          <Notice tone="neutral" title={t("real.unavailable.title")} body={t("real.unavailable.noWorkItems")} />
+        ) : null}
+        {noSprintDates ? (
+          <Notice tone="warning" title={t("real.unavailable.title")} body={t("real.unavailable.noSprintDates")} />
+        ) : null}
+
 
         {error ? (
           <SectionCard title={t("state.error.title")}>
@@ -132,9 +163,14 @@ function OverviewPage() {
                 <SectionCard title={t("eng.title")}>
                   <LoadingBlock rows={4} />
                 </SectionCard>
+              ) : engineeringUnavailable ? (
+                <SectionCard title={t("eng.title")}>
+                  <p className="text-[13px] text-muted-foreground">{t("real.unavailable.engineering")}</p>
+                </SectionCard>
               ) : (
                 <EngineeringHealthCard data={snapshot.engineering} />
               )}
+
             </div>
 
             {loading || !snapshot ? (

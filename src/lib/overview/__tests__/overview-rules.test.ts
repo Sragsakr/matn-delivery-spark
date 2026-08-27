@@ -1,0 +1,190 @@
+import { describe, expect, it } from "vitest";
+import { countWorkingDays, sprintCalendar } from "@/lib/calendar/cairo";
+import { buildIterationWiql, chunkIds, escapeWiqlLiteral, isAllowedReadPostKind } from "@/lib/azure/wiql";
+import { diffWorkItem } from "@/lib/azure/workitem-map";
+import {
+  buildOverview,
+  computeCriticalBlockers,
+  computeScopeCompletion,
+  computeSprintConfidence,
+  type RealWorkItemFact,
+} from "../overview-rules";
+
+const fact = (over: Partial<RealWorkItemFact> = {}): RealWorkItemFact => ({
+  id: "id-1",
+  azureWorkItemId: 1,
+  title: "Item",
+  alias: "story",
+  azureType: "User Story",
+  state: "Active",
+  stateCategory: "inProgress",
+  isBlocked: false,
+  blockedSince: null,
+  estimate: 5,
+  assignedToMemberId: "m1",
+  countsTowardScope: true,
+  stateChangeDate: "2026-08-18T00:00:00.000Z",
+  changedAtSource: "2026-08-18T00:00:00.000Z",
+  azureUrl: null,
+  ...over,
+});
+
+describe("cairo calendar", () => {
+  it("counts Sunday–Thursday working days only", () => {
+    // 2026-08-16 is a Sunday; 2026-08-29 the following Saturday.
+    expect(countWorkingDays("2026-08-16", "2026-08-29")).toBe(10);
+  });
+
+  it("returns null when sprint dates are missing", () => {
+    expect(sprintCalendar(null, "2026-08-29", "2026-08-20")).toBeNull();
+    expect(sprintCalendar("2026-08-16", null, "2026-08-20")).toBeNull();
+  });
+
+  it("derives day N of M and expected progress", () => {
+    const calendar = sprintCalendar("2026-08-16", "2026-08-29", "2026-08-25");
+    expect(calendar?.totalWorkingDays).toBe(10);
+    expect(calendar?.currentWorkingDay).toBe(8);
+    expect(calendar?.expectedCompletionPercent).toBe(80);
+  });
+
+  it("clamps a date after the sprint to the final day", () => {
+    expect(sprintCalendar("2026-08-16", "2026-08-29", "2026-09-10")?.currentWorkingDay).toBe(10);
+  });
+});
+
+describe("wiql builder", () => {
+  it("only allows the two read POST kinds", () => {
+    expect(isAllowedReadPostKind("wiql")).toBe(true);
+    expect(isAllowedReadPostKind("workItemsBatch")).toBe(true);
+    expect(isAllowedReadPostKind("workitemupdate")).toBe(false);
+  });
+
+  it("escapes single quotes instead of interpolating raw input", () => {
+    expect(escapeWiqlLiteral("O'Brien")).toBe("O''Brien");
+  });
+
+  it("scopes the query to project, iteration subtree and mapped types", () => {
+    const wiql = buildIterationWiql({
+      projectName: "Hoteliana",
+      iterationPath: "Hoteliana\\Sprint 1",
+      workItemTypes: ["User Story", "Bug"],
+    });
+    expect(wiql).toContain("[System.TeamProject] = 'Hoteliana'");
+    expect(wiql).toContain("[System.IterationPath] UNDER 'Hoteliana\\Sprint 1'");
+    expect(wiql).toContain("IN ('User Story', 'Bug')");
+  });
+
+  it("caps batches at 200 ids", () => {
+    const ids = Array.from({ length: 450 }, (_, i) => i + 1);
+    const chunks = chunkIds(ids);
+    expect(chunks).toHaveLength(3);
+    expect(chunks[0]).toHaveLength(200);
+    expect(chunks[2]).toHaveLength(50);
+  });
+});
+
+describe("work item diff", () => {
+  it("treats an identical re-sync as unchanged despite null/undefined mismatch", () => {
+    const payload = { title: "A", estimate: 5, reason: null } as never;
+    expect(diffWorkItem({ title: "A", estimate: "5", reason: undefined }, payload).kind).toBe("unchanged");
+  });
+
+  it("reports only the changed columns", () => {
+    const payload = { title: "B", estimate: 5 } as never;
+    const diff = diffWorkItem({ title: "A", estimate: 5 }, payload);
+    expect(diff).toEqual({ kind: "update", patch: { title: "B" } });
+  });
+});
+
+describe("overview rules", () => {
+  it("prefers estimates and falls back to item count", () => {
+    const estimated = computeScopeCompletion([
+      fact({ id: "1", estimate: 5, stateCategory: "completed" }),
+      fact({ id: "2", estimate: 5, stateCategory: "inProgress" }),
+    ]);
+    expect(estimated).toMatchObject({ percent: 50, basis: "estimate" });
+
+    const counted = computeScopeCompletion([
+      fact({ id: "1", estimate: null, stateCategory: "completed" }),
+      fact({ id: "2", estimate: null, stateCategory: "inProgress" }),
+    ]);
+    expect(counted).toMatchObject({ percent: 50, basis: "count" });
+  });
+
+  it("reports no scope rather than zero when there are no work items", () => {
+    expect(computeScopeCompletion([]).percent).toBeNull();
+  });
+
+  it("counts only active items blocked for two days or more", () => {
+    const now = "2026-08-25T00:00:00.000Z";
+    const result = computeCriticalBlockers(
+      [
+        fact({ id: "1", isBlocked: true, blockedSince: "2026-08-20T00:00:00.000Z" }),
+        fact({ id: "2", isBlocked: true, blockedSince: "2026-08-24T18:00:00.000Z" }),
+        fact({ id: "3", isBlocked: true, blockedSince: "2026-08-01T00:00:00.000Z", stateCategory: "completed" }),
+      ],
+      now,
+    );
+    expect(result.count).toBe(1);
+  });
+
+  it("withholds the confidence score below the coverage floor", () => {
+    const result = computeSprintConfidence({
+      scopePercent: null,
+      expectedPercent: null,
+      baselineScopeTotal: null,
+      currentScopeTotal: 0,
+      blockedActive: 0,
+      activeTotal: 0,
+      dataCoverage: 1,
+    });
+    expect(result.score).toBeNull();
+    expect(result.coverage).toBeLessThan(0.6);
+  });
+
+  it("scores confidence from the available components only", () => {
+    const result = computeSprintConfidence({
+      scopePercent: 70,
+      expectedPercent: 70,
+      baselineScopeTotal: null,
+      currentScopeTotal: 10,
+      blockedActive: 0,
+      activeTotal: 10,
+      dataCoverage: 1,
+    });
+    expect(result.coverage).toBeCloseTo(0.8, 5);
+    expect(result.score).toBe(100);
+  });
+
+  it("marks engineering and release unavailable until those domains are synchronized", () => {
+    const result = buildOverview({
+      facts: [fact()],
+      members: [],
+      calendar: sprintCalendar("2026-08-16", "2026-08-29", "2026-08-25"),
+      history: [],
+      lastSyncedAt: "2026-08-25T00:00:00.000Z",
+      nowIso: "2026-08-25T00:10:00.000Z",
+      iterationId: "ti-1",
+    });
+    expect(result.unavailable["engineering"]).toBe("not_synchronized");
+    expect(result.unavailable["release"]).toBe("not_synchronized");
+    expect(result.unavailable["scopeChange"]).toBe("no_baseline_snapshot");
+    expect(result.snapshot.kpis.map((k) => k.id)).not.toContain("scopeChange");
+  });
+
+  it("produces an empty-but-honest overview with no work items", () => {
+    const result = buildOverview({
+      facts: [],
+      members: [],
+      calendar: null,
+      history: [],
+      lastSyncedAt: null,
+      nowIso: "2026-08-25T00:00:00.000Z",
+      iterationId: "ti-1",
+    });
+    expect(result.unavailable["workItems"]).toBe("no_work_items");
+    expect(result.unavailable["sprintCalendar"]).toBe("no_sprint_dates");
+    expect(result.snapshot.kpis.map((k) => k.id)).toEqual(["blockers"]);
+    expect(result.snapshot.risks).toHaveLength(0);
+  });
+});

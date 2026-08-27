@@ -197,6 +197,26 @@ export const dictionary = {
   "eng.deployment": { ar: "حالة النشر", en: "Deployment status" },
   "eng.deploy.blocked": { ar: "النشر متوقف", en: "Deployment blocked" },
   "eng.deploy.note": { ar: "آخر نشر ناجح إلى بيئة الاختبار قبل ١٩ ساعة.", en: "Last successful staging deploy 19 hours ago." },
+  "eng.deploy.unknown": { ar: "حالة النشر غير معروفة", en: "Deployment status unknown" },
+  "eng.deploy.notSynced": { ar: "لم تتم مزامنة بيانات النشر بعد.", en: "Deployment data has not been synchronized yet." },
+  "real.mode.badge": { ar: "بيانات حقيقية", en: "Live data" },
+  "real.mode.mock": { ar: "بيانات تجريبية", en: "Sample data" },
+  "real.sync.action": { ar: "مزامنة السبرنت الحالي", en: "Sync current sprint" },
+  "real.sync.running": { ar: "جارٍ المزامنة…", en: "Syncing…" },
+  "real.unavailable.title": { ar: "غير متاح", en: "Not available" },
+  "real.unavailable.engineering": {
+    ar: "لم تتم مزامنة بيانات طلبات الدمج والبناء بعد، لذلك لا تُعرض الصحة الهندسية.",
+    en: "Pull request and build data are not synchronized yet, so engineering health is not shown.",
+  },
+  "real.unavailable.noWorkItems": {
+    ar: "لا توجد عناصر عمل مزامنة لهذا السبرنت. شغّل المزامنة لعرض المؤشرات.",
+    en: "No synchronized work items for this sprint. Run a sync to populate the indicators.",
+  },
+  "real.unavailable.noSprintDates": {
+    ar: "لا توجد تواريخ للسبرنت، لذلك لا يمكن حساب التقدم المتوقع.",
+    en: "This sprint has no dates, so expected progress cannot be computed.",
+  },
+
   "eng.hours": { ar: "ساعة", en: "h" },
 
   "actions.title": { ar: "الإجراءات الموصى بها", en: "Recommended Actions" },
