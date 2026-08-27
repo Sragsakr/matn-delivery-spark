@@ -551,8 +551,9 @@ async function runUnit(
     // A successful response with zero teams is complete; only an explicit
     // failure or an unfinished continuation makes this project scope partial.
     if (read.status !== "complete") {
+      // Scope-level incompleteness, not a record failure: it is tracked by the
+      // scope tally so `read = inserted + updated + unchanged + failed` holds.
       failedHere += 1;
-      add(state, "teams", "failed");
       state.warnings.push(`teams_${read.status}:${project.azure_project_id}:${read.warning ?? "unknown"}`);
     }
 
