@@ -536,8 +536,21 @@ export function buildOverview(input: OverviewInput): OverviewResult {
   const active = facts.filter((f) => ACTIVE_CATEGORIES.includes(f.stateCategory));
   const blockers = computeCriticalBlockers(facts, nowIso);
 
-  const baseline = input.history.length > 0 ? input.history[0]! : null;
-  if (!baseline) unavailable["scopeChange"] = "no_baseline_snapshot";
+  // Scope change needs a baseline captured on an earlier day than today. On the
+  // first synchronized day the baseline is the current state, so any delta would
+  // be 0% by construction rather than by measurement.
+  const today = cairoToday(new Date(Date.parse(nowIso)));
+  const firstSnapshot = input.history.length > 0 ? input.history[0]! : null;
+  const baseline =
+    firstSnapshot && firstSnapshot.snapshotDate < today && firstSnapshot.scopeTotal > 0
+      ? firstSnapshot
+      : null;
+  const scopeChangeReason: UnavailableReasonCode | null = baseline
+    ? null
+    : firstSnapshot
+      ? "baseline_same_day"
+      : "no_baseline_snapshot";
+  if (scopeChangeReason) unavailable["scopeChange"] = scopeChangeReason;
 
   const coverageParts = scoped.length > 0
     ? (scoped.filter((f) => f.estimate !== null).length / scoped.length) * 0.5 +
@@ -553,7 +566,9 @@ export function buildOverview(input: OverviewInput): OverviewResult {
     activeTotal: active.length,
     dataCoverage: coverageParts,
   });
-  if (confidence.score === null) unavailable["confidence"] = "no_work_items";
+  const confidenceReason: UnavailableReasonCode | null =
+    confidence.score !== null ? null : facts.length === 0 ? "no_work_items" : "insufficient_coverage";
+  if (confidenceReason) unavailable["confidence"] = confidenceReason;
 
   const trendPoints = input.history.map((point) => ({
     label: String(point.workingDay),
