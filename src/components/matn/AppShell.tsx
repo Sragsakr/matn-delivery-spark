@@ -238,10 +238,28 @@ function freshnessKey(f: DataFreshness): TKey {
 function TopBar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
   const { t, locale, setLocale } = useI18n();
   const { theme, toggleTheme } = useTheme();
-  const { snapshot, loading, refresh } = useWorkspace();
+  const { snapshot, loading, refresh, mode, dataState } = useWorkspace();
   const freshness = snapshot?.freshness ?? "fresh";
   const dotClass =
-    freshness === "fresh" ? statusDot.healthy : freshness === "error" ? statusDot.critical : statusDot.atRisk;
+    mode === "real"
+      ? dataState === "current"
+        ? statusDot.healthy
+        : dataState === "failed"
+          ? statusDot.critical
+          : statusDot.atRisk
+      : freshness === "fresh"
+        ? statusDot.healthy
+        : freshness === "error"
+          ? statusDot.critical
+          : statusDot.atRisk;
+
+  // In real mode the header reports the work-item data state, never a
+  // Foundation-sync freshness value.
+  const label =
+    mode === "real"
+      ? t(`real.state.${dataState}` as TKey)
+      : t(freshnessKey(freshness));
+  const showLastSync = mode === "real" ? dataState === "current" || dataState === "stale" : Boolean(snapshot);
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
@@ -256,10 +274,13 @@ function TopBar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
         <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
           <span className={cn("size-2 shrink-0 rounded-full", dotClass)} aria-hidden />
           <span className="truncate">
-            {t(freshnessKey(freshness))}
-            {snapshot ? ` · ${t("shell.lastSync")} ${t("common.minutes", { a: snapshot.lastSyncMinutesAgo })}` : ""}
+            {label}
+            {showLastSync && snapshot
+              ? ` · ${t("shell.lastSync")} ${t("common.minutes", { a: snapshot.lastSyncMinutesAgo })}`
+              : ""}
           </span>
         </div>
+
 
         <div className="flex shrink-0 items-center gap-1">
           <div className="hidden sm:block">
