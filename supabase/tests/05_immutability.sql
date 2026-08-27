@@ -6,7 +6,7 @@ BEGIN;
 
 DO $$
 DECLARE
-  t uuid; org uuid; p uuid; team uuid; iter uuid; ti uuid; wi uuid; rev uuid; snap uuid; ev uuid;
+  t uuid; org uuid; p uuid; team uuid; iter uuid; ti uuid; wi uuid; rev_id uuid; snap uuid; ev uuid;
 BEGIN
   INSERT INTO public.core_tenants (slug, name_en, name_ar, is_demo)
     VALUES ('test-immut','Immutable','ثبات', true) RETURNING id INTO t;
@@ -23,21 +23,21 @@ BEGIN
   INSERT INTO public.az_work_items (tenant_id, organization_id, project_id, azure_work_item_id, title, azure_work_item_type, state)
     VALUES (t, org, p, 7001, 'Item', 'User Story', 'Active') RETURNING id INTO wi;
   INSERT INTO public.az_work_item_revisions (tenant_id, project_id, work_item_id, azure_work_item_id, rev, revised_at, fields)
-    VALUES (t, p, wi, 7001, 1, now(), '{}'::jsonb) RETURNING id INTO rev;
+    VALUES (t, p, wi, 7001, 1, now(), '{}'::jsonb) RETURNING id INTO rev_id;
   INSERT INTO public.an_daily_iteration_snapshots (tenant_id, project_id, team_iteration_id, iteration_id, team_id, snapshot_date, finalized_at)
     VALUES (t, p, ti, iter, team, current_date, now()) RETURNING id INTO snap;
   ev := public.write_audit_event(t, NULL, 'test.event', 'core_tenants', t, 'success'::public.audit_outcome, NULL, '{}'::jsonb);
 
   -- 5.1 revision update fails
   BEGIN
-    UPDATE public.az_work_item_revisions SET rev = 2 WHERE id = rev;
+    UPDATE public.az_work_item_revisions SET rev = 2 WHERE id = rev_id;
     RAISE EXCEPTION 'TEST FAILED 5.1: revision update accepted';
   EXCEPTION WHEN check_violation OR insufficient_privilege THEN RAISE NOTICE 'PASS 5.1 revision update blocked';
   END;
 
   -- 5.2 revision delete fails
   BEGIN
-    DELETE FROM public.az_work_item_revisions WHERE id = rev;
+    DELETE FROM public.az_work_item_revisions WHERE id = rev_id;
     RAISE EXCEPTION 'TEST FAILED 5.2: revision delete accepted';
   EXCEPTION WHEN check_violation OR insufficient_privilege THEN RAISE NOTICE 'PASS 5.2 revision delete blocked';
   END;
