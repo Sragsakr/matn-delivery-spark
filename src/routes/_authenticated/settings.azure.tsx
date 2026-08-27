@@ -81,9 +81,20 @@ function ReportTable({ report }: { report: SyncRunReport }) {
               <tr key={domain} className="border-t border-border/60">
                 <th scope="row" className="py-2 text-start font-medium">
                   {t(`azure.domain.${domain}` as TKey)}{" "}
-                  <Badge variant={counts.complete ? "secondary" : "destructive"} className="ms-1 align-middle">
-                    {counts.complete ? t("azure.complete") : t("azure.partial")}
+                  <Badge
+                    variant={counts.complete ? "secondary" : counts.blocked ? "outline" : "destructive"}
+                    className="ms-1 align-middle"
+                  >
+                    {counts.complete ? t("azure.complete") : counts.blocked ? t("azure.blocked") : t("azure.partial")}
                   </Badge>
+                  {counts.blocked && counts.blockedBy ? (
+                    <span className="ms-2 block text-xs font-normal text-muted-foreground">
+                      {t("azure.skippedBecause").replace(
+                        "{domain}",
+                        t(`azure.domain.${counts.blockedBy}` as TKey),
+                      )}
+                    </span>
+                  ) : null}
                 </th>
                 <td className="py-2"><Iso>{counts.discovered}</Iso></td>
                 <td className="py-2"><Iso>{counts.inserted}</Iso></td>
