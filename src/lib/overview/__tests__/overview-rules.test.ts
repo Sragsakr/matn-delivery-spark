@@ -43,8 +43,8 @@ describe("cairo calendar", () => {
   it("derives day N of M and expected progress", () => {
     const calendar = sprintCalendar("2026-08-16", "2026-08-29", "2026-08-25");
     expect(calendar?.totalWorkingDays).toBe(10);
-    expect(calendar?.currentWorkingDay).toBe(7);
-    expect(calendar?.expectedCompletionPercent).toBe(70);
+    expect(calendar?.currentWorkingDay).toBe(8);
+    expect(calendar?.expectedCompletionPercent).toBe(80);
   });
 
   it("clamps a date after the sprint to the final day", () => {
