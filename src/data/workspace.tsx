@@ -46,6 +46,21 @@ type Options = {
   iterations: Iteration[];
 };
 
+/** Honest work-item/Overview data state — never Foundation-sync freshness. */
+export type RealDataState = "notSynced" | "syncing" | "current" | "partial" | "failed" | "stale";
+
+export type WorkItemSyncReport = {
+  readonly discoveredIds: number;
+  readonly read: number;
+  readonly inserted: number;
+  readonly updated: number;
+  readonly unchanged: number;
+  readonly detached: number;
+  readonly failed: number;
+  readonly truncated: boolean;
+  readonly status: "succeeded" | "partial" | "failed";
+};
+
 type Ctx = {
   mode: WorkspaceMode;
   filters: WorkspaceFilters;
@@ -63,7 +78,12 @@ type Ctx = {
   syncMessage: string | null;
   runSync: () => void;
   options: Options;
+  dataState: RealDataState;
+  syncReport: WorkItemSyncReport | null;
+  /** True when the sprint has no real start/finish dates. */
+  sprintDatesUnavailable: boolean;
 };
+
 
 const WorkspaceContext = createContext<Ctx | null>(null);
 
