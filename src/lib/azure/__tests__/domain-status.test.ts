@@ -91,7 +91,7 @@ describe("team reconciliation", () => {
   });
 
   it("never includes identity columns in the update payload", () => {
-    const payload = mutableTeamPayload(source) as Record<string, unknown>;
+    const payload = mutableTeamPayload(source) as unknown as Record<string, unknown>;
     for (const column of IMMUTABLE_TEAM_COLUMNS) expect(payload).not.toHaveProperty(column);
   });
 });
