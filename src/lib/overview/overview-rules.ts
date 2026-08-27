@@ -609,6 +609,31 @@ export function buildOverview(input: OverviewInput): OverviewResult {
   // trustworthy source reports N/A and its reason instead of disappearing.
   const kpis: KpiMetric[] = [];
 
+  const capacityAvailable = input.members.some(
+    (m) => typeof m.capacityHours === "number" && m.capacityHours > 0,
+  );
+  const coveragePercent = Math.round(confidence.coverage * 100);
+  const includedComponents = confidence.components.map((c) => c.key);
+  const missingComponents = (
+    Object.keys(CONFIDENCE_WEIGHTS) as (keyof typeof CONFIDENCE_WEIGHTS)[]
+  ).filter((key) => !includedComponents.includes(key));
+  const largestDrag = confidence.components.reduce<ConfidenceComponent | null>(
+    (worst, c) => (worst === null || c.score < worst.score ? c : worst),
+    null,
+  );
+  const sprintDay = calendar?.currentWorkingDay ?? null;
+  const totalWorkingDays = calendar?.totalWorkingDays ?? null;
+  const confidenceFacts = emptyFacts({
+    basis: "components",
+    availableComponents: [...includedComponents],
+    missingComponents: [...missingComponents],
+    coveragePercent,
+    sprintDay,
+    totalWorkingDays,
+    blockerCount: blockers.count,
+    capacityAvailable,
+  });
+
   kpis.push(
     confidence.score !== null
       ? kpi(
@@ -619,8 +644,16 @@ export function buildOverview(input: OverviewInput): OverviewResult {
           Math.round(confidence.coverage * 100),
           [
             {
-              ar: `تغطية البيانات ${Math.round(confidence.coverage * 100)}%`,
-              en: `Data coverage ${Math.round(confidence.coverage * 100)}%`,
+              ar: `تغطية المكوّنات ${Math.round(confidence.coverage * 100)}%`,
+              en: `Component coverage ${Math.round(confidence.coverage * 100)}%`,
+            },
+            {
+              ar: `مكوّنات مُدرجة: ${includedComponents.join("، ") || "لا شيء"}`,
+              en: `Included components: ${includedComponents.join(", ") || "None"}`,
+            },
+            {
+              ar: `مكوّنات ناقصة: ${missingComponents.join("، ") || "لا شيء"}`,
+              en: `Missing components: ${missingComponents.join(", ") || "None"}`,
             },
           ],
           {
@@ -628,8 +661,21 @@ export function buildOverview(input: OverviewInput): OverviewResult {
             en: "Weighted mean of available components only",
           },
           trendPoints,
+          [],
+          {
+            key: `real.explain.confidence.${largestDrag?.key ?? "dataCompleteness"}`,
+            vars: {
+              a: coveragePercent,
+              b: confidence.components.length,
+              c: Math.round(largestDrag?.score ?? 0),
+            },
+            facts: confidenceFacts,
+          },
         )
-      : unavailableKpi("confidence", "percent", confidenceReason ?? "insufficient_coverage"),
+      : unavailableKpi("confidence", "percent", confidenceReason ?? "insufficient_coverage", {
+          key: `real.reason.${confidenceReason ?? "insufficient_coverage"}`,
+          facts: confidenceFacts,
+        }),
   );
 
   kpis.push(
@@ -658,8 +704,30 @@ export function buildOverview(input: OverviewInput): OverviewResult {
             : { ar: "العناصر المكتملة ÷ إجمالي العناصر", en: "Completed items ÷ total items" },
           trendPoints,
           scoped.slice(0, 5).map(toRef),
+          {
+            key: `real.explain.scope.${scope.basis}`,
+            vars: {
+              a: sprintDay ?? 0,
+              b: totalWorkingDays ?? 0,
+              c: scope.completed,
+              d: scope.total,
+            },
+            facts: emptyFacts({
+              basis: scope.basis,
+              numerator: scope.completed,
+              denominator: scope.total,
+              sprintDay,
+              totalWorkingDays,
+              comparisonValue: expectedPercent,
+              blockerCount: blockers.count,
+              capacityAvailable,
+            }),
+          },
         )
-      : unavailableKpi("scope", "percent", "no_work_items"),
+      : unavailableKpi("scope", "percent", "no_work_items", {
+          key: "real.reason.no_work_items",
+          facts: emptyFacts({ sprintDay, totalWorkingDays, blockerCount: blockers.count, capacityAvailable }),
+        }),
   );
 
   kpis.push(
@@ -677,8 +745,29 @@ export function buildOverview(input: OverviewInput): OverviewResult {
             },
           ],
           { ar: "أيام العمل المنقضية ÷ إجمالي أيام العمل", en: "Elapsed working days ÷ total working days" },
+          [],
+          [],
+          {
+            key:
+              calendar.currentWorkingDay >= calendar.totalWorkingDays
+                ? "real.explain.expected.final"
+                : "real.explain.expected.inProgress",
+            vars: { a: calendar.currentWorkingDay, b: calendar.totalWorkingDays },
+            facts: emptyFacts({
+              basis: "workingDays",
+              numerator: calendar.currentWorkingDay,
+              denominator: calendar.totalWorkingDays,
+              sprintDay: calendar.currentWorkingDay,
+              totalWorkingDays: calendar.totalWorkingDays,
+              blockerCount: blockers.count,
+              capacityAvailable,
+            }),
+          },
         )
-      : unavailableKpi("expected", "percent", "no_sprint_dates"),
+      : unavailableKpi("expected", "percent", "no_sprint_dates", {
+          key: "real.reason.no_sprint_dates",
+          facts: emptyFacts({ blockerCount: blockers.count, capacityAvailable }),
+        }),
   );
 
   if (baseline) {
@@ -697,10 +786,28 @@ export function buildOverview(input: OverviewInput): OverviewResult {
           },
         ],
         { ar: "(النطاق الحالي − خط الأساس) ÷ خط الأساس", en: "(current scope − baseline) ÷ baseline" },
+        [],
+        [],
+        {
+          key: "real.reason.no_baseline_snapshot",
+          facts: emptyFacts({
+            numerator: scope.total,
+            denominator: baseline.scopeTotal,
+            sprintDay,
+            totalWorkingDays,
+            blockerCount: blockers.count,
+            capacityAvailable,
+          }),
+        },
       ),
     );
   } else {
-    kpis.push(unavailableKpi("scopeChange", "delta", scopeChangeReason ?? "no_baseline_snapshot"));
+    kpis.push(
+      unavailableKpi("scopeChange", "delta", scopeChangeReason ?? "no_baseline_snapshot", {
+        key: `real.reason.${scopeChangeReason ?? "no_baseline_snapshot"}`,
+        facts: emptyFacts({ sprintDay, totalWorkingDays, blockerCount: blockers.count, capacityAvailable }),
+      }),
+    );
   }
 
   kpis.push(
@@ -719,12 +826,43 @@ export function buildOverview(input: OverviewInput): OverviewResult {
       { ar: "عدد العناصر النشطة المحجوبة", en: "Count of active blocked items" },
       [],
       blockers.items.slice(0, 5).map(toRef),
+      blockers.count === 0
+        ? {
+            key: "real.explain.blockers.none",
+            facts: emptyFacts({ numerator: 0, sprintDay, totalWorkingDays, blockerCount: 0, capacityAvailable }),
+          }
+        : {
+            key: "real.explain.blockers.some",
+            vars: {
+              a: blockers.count,
+              b: CRITICAL_BLOCKER_AGE_DAYS,
+              c: Math.round(
+                Math.max(
+                  ...blockers.items.map(
+                    (f) => daysBetween(f.blockedSince ?? f.stateChangeDate, nowIso) ?? 0,
+                  ),
+                ),
+              ),
+            },
+            facts: emptyFacts({
+              numerator: blockers.count,
+              sprintDay,
+              totalWorkingDays,
+              blockerCount: blockers.count,
+              capacityAvailable,
+            }),
+          },
     ),
   );
 
   // Release readiness depends on builds, tests and deployments — none of which
   // are synchronized in this phase, so it stays explicitly unavailable.
-  kpis.push(unavailableKpi("release", "percent", "not_synchronized"));
+  kpis.push(
+    unavailableKpi("release", "percent", "not_synchronized", {
+      key: "real.explain.release.notSynced",
+      facts: emptyFacts({ sprintDay, totalWorkingDays, blockerCount: blockers.count, capacityAvailable }),
+    }),
+  );
 
   unavailable["release"] = "not_synchronized";
   unavailable["engineering"] = "not_synchronized";
