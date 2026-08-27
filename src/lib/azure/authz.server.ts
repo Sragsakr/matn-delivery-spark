@@ -93,7 +93,7 @@ export async function writeAudit(input: {
     entity_type: input.entityType,
     entity_id: input.entityId ?? null,
     outcome: input.outcome,
-    correlation_id: input.correlationId ?? undefined,
-    metadata: (input.metadata ?? {}) as Database["public"]["Tables"]["aud_audit_events"]["Insert"]["metadata"],
+    ...(input.correlationId ? { correlation_id: input.correlationId } : {}),
+    metadata: (input.metadata ?? {}) as Database["public"]["Tables"]["aud_audit_events"]["Row"]["metadata"],
   });
 }

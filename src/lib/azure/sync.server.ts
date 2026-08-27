@@ -589,7 +589,7 @@ export async function runFoundationSync(input: FoundationSyncInput): Promise<Syn
         items_read: report.totals.discovered,
         items_written: report.totals.inserted + report.totals.updated,
         error_count: report.totals.failed,
-        details: report as unknown as Database["public"]["Tables"]["ops_sync_runs"]["Update"]["details"],
+        details: report as unknown as Database["public"]["Tables"]["ops_sync_runs"]["Row"]["details"],
       })
       .eq("tenant_id", input.tenantId)
       .eq("id", runId);
@@ -615,7 +615,7 @@ export async function runFoundationSync(input: FoundationSyncInput): Promise<Syn
         finished_at: failedAt,
         finalized_at: failedAt,
         error_count: report.totals.failed + 1,
-        details: report as unknown as Database["public"]["Tables"]["ops_sync_runs"]["Update"]["details"],
+        details: report as unknown as Database["public"]["Tables"]["ops_sync_runs"]["Row"]["details"],
       })
       .eq("tenant_id", input.tenantId)
       .eq("id", runId);
