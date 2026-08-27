@@ -163,9 +163,14 @@ function OverviewPage() {
                 <SectionCard title={t("eng.title")}>
                   <LoadingBlock rows={4} />
                 </SectionCard>
+              ) : engineeringUnavailable ? (
+                <SectionCard title={t("eng.title")}>
+                  <p className="text-[13px] text-muted-foreground">{t("real.unavailable.engineering")}</p>
+                </SectionCard>
               ) : (
                 <EngineeringHealthCard data={snapshot.engineering} />
               )}
+
             </div>
 
             {loading || !snapshot ? (
