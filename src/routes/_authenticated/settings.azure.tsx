@@ -18,7 +18,6 @@ import {
 } from "@/lib/azure/azure.functions";
 import { deriveAzureUiState } from "@/lib/azure/ui-state";
 import { SYNC_DOMAINS, type SyncDomain, type SyncRunReport } from "@/lib/azure/contracts";
-import type { AzureFailure } from "@/lib/azure/errors";
 
 export const Route = createFileRoute("/_authenticated/settings/azure")({
   head: () => ({
@@ -39,8 +38,6 @@ export const Route = createFileRoute("/_authenticated/settings/azure")({
   }),
   component: AzureSettingsPage,
 });
-
-const errorKey = (failure: AzureFailure): TKey => `azure.error.${failure.code}` as TKey;
 
 function StatusBadge({ status }: { status: string }) {
   const { t } = useI18n();
