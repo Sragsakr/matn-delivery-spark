@@ -892,5 +892,67 @@ export function buildOverview(input: OverviewInput): OverviewResult {
     actions: actionsFromRisks(risks),
   };
 
+  const violations = findExplanationContradictions(kpis);
+  if (violations.length > 0 && process.env["NODE_ENV"] !== "production") {
+    // Real mode must never narrate something its own numbers contradict.
+    console.error("[overview] explanation contradictions", violations);
+  }
+
   return { snapshot, unavailable, confidenceCoveragePercent: Math.round(confidence.coverage * 100) };
+}
+
+/**
+ * Development/test guard: real-mode explanation facts may not contradict the
+ * displayed value, availability, sprint day, blocker count, capacity
+ * availability, or source coverage.
+ */
+export function findExplanationContradictions(kpis: readonly KpiMetric[]): string[] {
+  const problems: string[] = [];
+  for (const metric of kpis) {
+    const facts = metric.explanationFacts;
+    if (!facts) {
+      problems.push(`${metric.id}: missing explanation facts`);
+      continue;
+    }
+    if (metric.explanationKey.endsWith(".explain")) {
+      problems.push(`${metric.id}: uses a static mock explanation key`);
+    }
+    if (metric.unavailable && metric.explanationKey.startsWith("real.explain.") &&
+        metric.id !== "release") {
+      problems.push(`${metric.id}: unavailable metric narrates a computed value`);
+    }
+    if (metric.id === "blockers") {
+      const zero = metric.value === 0;
+      if (zero !== (metric.explanationKey === "real.explain.blockers.none")) {
+        problems.push(`${metric.id}: blocker narrative contradicts count ${metric.value}`);
+      }
+      if (facts.blockerCount !== metric.value) {
+        problems.push(`${metric.id}: facts blockerCount ${facts.blockerCount} != value ${metric.value}`);
+      }
+    }
+    if (metric.id === "scope" && !metric.unavailable) {
+      if (facts.denominator === null || facts.numerator === null) {
+        problems.push("scope: missing numerator/denominator");
+      }
+      const day = facts.sprintDay;
+      if (day !== null && Number(metric.explanationVars?.["a"] ?? day) !== day) {
+        problems.push("scope: narrated sprint day differs from the sprint calendar");
+      }
+    }
+    if (metric.id === "expected" && !metric.unavailable && facts.capacityAvailable === false) {
+      if (!metric.explanationKey.startsWith("real.explain.expected.")) {
+        problems.push("expected: explanation is not derived from working days only");
+      }
+    }
+    if (metric.id === "confidence" && !metric.unavailable) {
+      const cited = metric.explanationKey.replace("real.explain.confidence.", "");
+      if (!facts.availableComponents.includes(cited)) {
+        problems.push(`confidence: cites unavailable component ${cited}`);
+      }
+      if ((facts.coveragePercent ?? 0) < MIN_CONFIDENCE_COVERAGE * 100) {
+        problems.push("confidence: score reported below the coverage floor");
+      }
+    }
+  }
+  return problems;
 }
