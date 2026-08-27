@@ -13,6 +13,7 @@ import type {
   FunnelStage,
   FunnelStageId,
   HealthStatus,
+  KpiExplanationFacts,
   KpiId,
   KpiMetric,
   RecommendedAction,
@@ -471,6 +472,27 @@ function buildTrajectory(
   };
 }
 
+interface KpiExplanation {
+  readonly key: string;
+  readonly vars?: Record<string, string | number>;
+  readonly facts?: KpiExplanationFacts;
+}
+
+const emptyFacts = (over: Partial<KpiExplanationFacts>): KpiExplanationFacts => ({
+  basis: "none",
+  numerator: null,
+  denominator: null,
+  sprintDay: null,
+  totalWorkingDays: null,
+  availableComponents: [],
+  missingComponents: [],
+  comparisonValue: null,
+  coveragePercent: null,
+  blockerCount: null,
+  capacityAvailable: false,
+  ...over,
+});
+
 const kpi = (
   id: KpiId,
   value: number,
@@ -481,12 +503,17 @@ const kpi = (
   formula: KpiMetric["formula"],
   trend: KpiMetric["trend"] = [],
   relatedItems: WorkItemRef[] = [],
+  explain?: KpiExplanation,
 ): KpiMetric => ({
   id,
-  // The dictionary uses the metric id as the label key, with `.help`/`.explain` suffixes.
+  // Labels/tooltips come from the dictionary; the explanation is always derived
+  // from the same calculation result that produced `value` — never a static
+  // Phase 1 sentence.
   labelKey: `kpi.${id}`,
   tooltipKey: `kpi.${id}.help`,
-  explanationKey: `kpi.${id}.explain`,
+  explanationKey: explain?.key ?? `real.reason.not_synchronized`,
+  explanationVars: explain?.vars,
+  explanationFacts: explain?.facts,
   value,
   unit,
   status,
@@ -502,11 +529,14 @@ const unavailableKpi = (
   id: KpiId,
   unit: KpiMetric["unit"],
   reason: UnavailableReasonCode,
+  explain?: KpiExplanation,
 ): KpiMetric => ({
   id,
   labelKey: `kpi.${id}`,
   tooltipKey: `kpi.${id}.help`,
-  explanationKey: `real.reason.${reason}`,
+  explanationKey: explain?.key ?? `real.reason.${reason}`,
+  explanationVars: explain?.vars,
+  explanationFacts: explain?.facts,
   value: 0,
   unit,
   status: "neutral",
