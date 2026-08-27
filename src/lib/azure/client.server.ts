@@ -5,6 +5,8 @@
  * never at module scope, never returned, never logged.
  */
 import { AzureDevOpsError, statusToCode } from "./errors";
+import { isAllowedReadPostKind, type AzureReadPostKind } from "./wiql";
+
 import type {
   AzureIteration,
   AzureListResponse,
@@ -169,7 +171,78 @@ export class AzureDevOpsClient {
     return items;
   }
 
+  /**
+   * The ONLY POST surface. Azure DevOps requires POST for WIQL and for the
+   * work-items batch reader; both are pure reads. The caller passes an
+   * allowlisted kind — never a path — so no write endpoint is reachable.
+   */
+  async postAllowlisted<T>(
+    kind: AzureReadPostKind,
+    project: string,
+    body: unknown,
+    options: AzureRequestOptions = {},
+  ): Promise<T> {
+    if (!isAllowedReadPostKind(kind)) throw new AzureDevOpsError("forbidden");
+    if (!project || /[\\/?#]/.test(project)) throw new AzureDevOpsError("invalid_configuration");
+    const path =
+      kind === "wiql"
+        ? `/${encodeURIComponent(project)}/_apis/wit/wiql`
+        : `/${encodeURIComponent(project)}/_apis/wit/workitemsbatch`;
+    const url = this.buildUrl(path, options);
+    const payload = JSON.stringify(body);
+
+    for (let attempt = 0; ; attempt += 1) {
+      const timeoutController = new AbortController();
+      const timer = setTimeout(() => timeoutController.abort(), this.timeoutMs);
+      const onOuterAbort = () => timeoutController.abort();
+      options.signal?.addEventListener("abort", onOuterAbort);
+
+      let response: Response;
+      try {
+        response = await this.fetchImpl(url, {
+          method: "POST",
+          headers: {
+            authorization: this.authHeader,
+            accept: "application/json",
+            "content-type": "application/json",
+          },
+          body: payload,
+          signal: timeoutController.signal,
+        });
+      } catch {
+        if (options.signal?.aborted) throw new AzureDevOpsError("timeout");
+        if (attempt < this.maxRetries) {
+          await this.sleep(this.backoffMs(attempt, null));
+          continue;
+        }
+        throw new AzureDevOpsError("timeout");
+      } finally {
+        clearTimeout(timer);
+        options.signal?.removeEventListener("abort", onOuterAbort);
+      }
+
+      if (response.ok) {
+        const contentType = response.headers.get("content-type") ?? "";
+        if (!contentType.includes("json")) throw new AzureDevOpsError("invalid_credentials", { httpStatus: 203 });
+        return (await response.json()) as T;
+      }
+
+      const retryAfterHeader = response.headers.get("retry-after");
+      const parsed = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : null;
+      const safeRetryAfter = parsed !== null && Number.isFinite(parsed) ? parsed : null;
+      if (RETRYABLE.has(response.status) && attempt < this.maxRetries) {
+        await this.sleep(this.backoffMs(attempt, safeRetryAfter));
+        continue;
+      }
+      throw new AzureDevOpsError(statusToCode(response.status), {
+        httpStatus: response.status,
+        retryAfterSeconds: safeRetryAfter,
+      });
+    }
+  }
+
   listProjects(signal?: AbortSignal): Promise<AzureProject[]> {
+
     return this.list<AzureProject>("/_apis/projects", { query: { $top: 200 }, signal });
   }
 
