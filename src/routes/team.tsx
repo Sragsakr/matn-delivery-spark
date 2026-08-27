@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { ExternalLink, Users } from "lucide-react";
 import { AppShell } from "@/components/matn/AppShell";
 import {
-  EmptyBlock,
   ErrorBlock,
   Iso,
   LoadingBlock,
@@ -18,7 +17,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { useI18n, type TKey } from "@/lib/i18n";
 import { useWorkspace } from "@/data/workspace";
 import { getRealTeamPage } from "@/lib/workspace/workspace.functions";
-import type { TeamMemberRow, TeamWorkItemRow } from "@/lib/team/team-rules";
+import type { TeamMemberRow, TeamPageContract, TeamWorkItemRow } from "@/lib/team/team-rules";
 
 export const Route = createFileRoute("/team")({
   head: () => ({
@@ -46,7 +45,7 @@ const stateKey = (c: string): TKey => `tp.state.${c}` as TKey;
 const typeKey = (alias: string): TKey => `tp.type.${alias}` as TKey;
 
 function TeamPage() {
-  const { t, locale, n } = useI18n();
+  const { t, locale } = useI18n();
   const { mode, filters, loading: workspaceLoading } = useWorkspace();
   const enabled = mode === "real" && Boolean(filters.iterationId);
 
@@ -121,11 +120,7 @@ function dataStatus(state: string) {
   return "neutral" as const;
 }
 
-type Payload = NonNullable<Awaited<ReturnType<typeof getRealTeamPage>> extends infer R
-  ? R extends { ok: true; team: infer T }
-    ? T
-    : never
-  : never>;
+type Payload = TeamPageContract;
 
 function TeamBody({ payload }: { payload: Payload }) {
   const { t, locale, n } = useI18n();
