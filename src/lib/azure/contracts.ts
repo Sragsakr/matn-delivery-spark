@@ -1,5 +1,5 @@
 /** Client-safe DTOs returned by the Azure DevOps server operations. */
-import type { AzureFailure } from "./errors";
+import type { AzureErrorCode, AzureFailure } from "./errors";
 
 export type ConnectionStatus = "unconfigured" | "pending" | "connected" | "error" | "disabled";
 
