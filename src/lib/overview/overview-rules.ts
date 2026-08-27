@@ -6,7 +6,7 @@
  * persisted daily snapshot. When a source is missing the rule reports the
  * metric as unavailable instead of inventing a value.
  */
-import type { SprintCalendar } from "@/lib/calendar/cairo";
+import { cairoToday, type SprintCalendar } from "@/lib/calendar/cairo";
 import type { StateCategory, WorkItemAlias } from "@/types/domain/work-item";
 import type {
   DeliverySnapshot,
