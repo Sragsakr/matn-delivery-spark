@@ -483,9 +483,10 @@ const kpi = (
   relatedItems: WorkItemRef[] = [],
 ): KpiMetric => ({
   id,
-  labelKey: `kpi.${id}.label`,
-  tooltipKey: `kpi.${id}.tooltip`,
-  explanationKey: `kpi.${id}.explanation`,
+  // The dictionary uses the metric id as the label key, with `.help`/`.explain` suffixes.
+  labelKey: `kpi.${id}`,
+  tooltipKey: `kpi.${id}.help`,
+  explanationKey: `kpi.${id}.explain`,
   value,
   unit,
   status,
@@ -494,6 +495,27 @@ const kpi = (
   drivers,
   relatedItems,
   formula,
+});
+
+/** A KPI card that must still be shown, but carries no value — only a reason. */
+const unavailableKpi = (
+  id: KpiId,
+  unit: KpiMetric["unit"],
+  reason: UnavailableReasonCode,
+): KpiMetric => ({
+  id,
+  labelKey: `kpi.${id}`,
+  tooltipKey: `kpi.${id}.help`,
+  explanationKey: `real.reason.${reason}`,
+  value: 0,
+  unit,
+  status: "neutral",
+  comparison: { kind: "target", value: 0 },
+  trend: [],
+  drivers: [],
+  relatedItems: [],
+  formula: { ar: "—", en: "—" },
+  unavailable: { reasonKey: `real.reason.${reason}` },
 });
 
 /** Builds the entire real-data Overview payload from synchronized facts. */
