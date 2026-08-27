@@ -17,6 +17,7 @@ import { emptyCounts, SYNC_DOMAINS, type DomainCounts, type SyncDomain, type Syn
 import { discoverAzureProjectsBounded } from "./discovery.server";
 import { readProjectTeams } from "./teams.server";
 import { diffProject, mutableProjectPayload } from "./project-upsert";
+import { diffTeam, mutableTeamPayload } from "./team-upsert";
 import {
   ADVANCE_BUDGET_MS,
   LOCK_TTL_MS,
@@ -25,10 +26,12 @@ import {
   canTombstone,
   decideStart,
   deriveRunStatus,
+  finalizeScopedDomain,
   initialCursor,
   nextCursor,
   type JobCursor,
   type JobState,
+  type ScopeTally,
 } from "./job-rules";
 import { ensureConnection, ensureOrganization } from "./sync.server";
 import { dateOnly, iterationPhase, memberKey, templateFromName } from "./sync-rules";
@@ -66,6 +69,7 @@ interface WorkingState {
   warnings: string[];
   cursor: JobCursor | null;
   scannedDomains: SyncDomain[];
+  scopes: Partial<Record<SyncDomain, ScopeTally>>;
   error: SyncRunReport["error"];
 }
 
@@ -94,6 +98,7 @@ const toState = (w: WorkingState): JobState => ({
   error: w.error,
   cursor: w.cursor,
   scannedDomains: [...w.scannedDomains],
+  scopes: { ...w.scopes },
 });
 
 const fromState = (state: JobState): WorkingState => ({
@@ -106,6 +111,7 @@ const fromState = (state: JobState): WorkingState => ({
   warnings: [...state.warnings],
   cursor: state.cursor,
   scannedDomains: [...(state.scannedDomains ?? [])],
+  scopes: { ...(state.scopes ?? {}) },
   error: state.error,
 });
 
@@ -117,6 +123,34 @@ const add = (state: WorkingState, domain: SyncDomain, key: keyof DomainCounts, v
   const current = state.domains[domain];
   bump(state, domain, { [key]: (current[key] as number) + value } as Partial<Mutable<DomainCounts>>);
 };
+
+const tally = (state: WorkingState, domain: SyncDomain): ScopeTally =>
+  state.scopes[domain] ?? { attempted: 0, completed: 0 };
+
+const recordScope = (state: WorkingState, domain: SyncDomain, completed: boolean): void => {
+  const current = tally(state, domain);
+  state.scopes[domain] = {
+    attempted: current.attempted + 1,
+    completed: current.completed + (completed ? 1 : 0),
+  };
+};
+
+/**
+ * Applies the shared status invariants to a scoped domain and, when the scan
+ * is not complete, records a specific sanitized warning naming the gap.
+ */
+function finalizeDomain(state: WorkingState, domain: SyncDomain, nowIso: string): boolean {
+  const result = finalizeScopedDomain(state.domains[domain], tally(state, domain), nowIso);
+  state.domains[domain] = result.counts;
+  if (result.status === "complete") {
+    state.scannedDomains.push(domain);
+    return true;
+  }
+  state.warnings.push(
+    `${domain}_${result.status}:incomplete_scopes=${result.incompleteScopes}:failed=${state.domains[domain].failed}`,
+  );
+  return false;
+}
 
 async function checkpoint(tenantId: string, state: WorkingState): Promise<void> {
   const snapshot = toState(state);
@@ -231,6 +265,7 @@ export async function startFoundationJob(input: StartJobInput): Promise<StartJob
     warnings: [],
     cursor: initialCursor(),
     scannedDomains: [],
+    scopes: {},
     error: null,
   };
 
