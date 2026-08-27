@@ -32,7 +32,7 @@ export interface TeamWorkItemFact {
   readonly countsTowardScope: boolean;
   readonly stateChangeDate: string | null;
   readonly changedAtSource: string | null;
-  readonly azureUrl: string;
+  readonly azureUrl: string | null;
 }
 
 /** A team member as synchronized from Azure. Email/descriptor never enter here. */
@@ -61,7 +61,7 @@ export interface TeamWorkItemRow {
   readonly changedAtSource: string | null;
   readonly stateChangeDate: string | null;
   readonly currentStageAgeDays: number | null;
-  readonly azureUrl: string;
+  readonly azureUrl: string | null;
 }
 
 export interface TeamMemberRow {
