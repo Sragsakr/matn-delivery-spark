@@ -135,4 +135,6 @@ export const emptyCounts = (): DomainCounts => ({
   failed: 0,
   complete: false,
   freshnessAt: null,
+  blocked: false,
+  blockedBy: null,
 });
