@@ -86,6 +86,18 @@ Phase 2 stops at specification. Nothing below is executed until a human approves
 - **Consequences**: Every policy is one argument longer and helper results are no longer cacheable per session; in exchange dual-tenant membership is safe by construction, and a fresh production database contains no fabricated rows. `dblink` is installed for the test harness only and is revoked from `PUBLIC`, `anon` and `authenticated`.
 - **Alternatives**: Keep a session-level "current tenant" GUC (rejected — client-settable and easily forgotten in a policy), forbid multi-tenant auth accounts with a global unique index (rejected — a legitimate consultant/partner case, and the constraint hid the bug rather than fixing it), global `platform_admin` (rejected — one compromised session would expose every tenant).
 
+### ADR-012: Read-only Azure DevOps foundation sync on the app server (Phase 4 / 5A)
+- **Context**: The first live integration must read organizations, projects, teams, iterations, members and memberships from Azure DevOps without exposing the credential, without duplicating work under concurrent operators, and without deleting real rows when the provider is briefly unavailable.
+- **Decision**:
+  1. **App-server only** — synchronization runs in TanStack `createServerFn` handlers (`src/lib/azure/*`), not in a database function and not in an edge function. The PAT is read from `process.env` inside handlers; `ops_sync_connections.secret_ref` stores the secret's *name*.
+  2. **GET-only client** — one typed client, `api-version=7.1`, continuation-token paging with a hard page ceiling, bounded concurrency, and retry that honours `Retry-After`. Errors are mapped to a closed `AzureErrorCode` set with fixed user-facing text; provider bodies never reach the browser.
+  3. **Identity from the token** — the tenant is resolved from `auth.uid()` through `core_users`; an ambiguous multi-tenant match without an explicit tenant is `forbidden`. Sync requires `platform_admin` or `tenant_admin`; every operation is audited.
+  4. **One active run per organization** — enforced structurally by a partial unique index on `ops_sync_locks (tenant_id, organization_id) WHERE released_at IS NULL`, with a 30-minute lock reclaim. A losing caller gets a `skipped` report, never a duplicate run.
+  5. **Partial over silent** — per-domain completeness is reported; an incomplete domain skips tombstoning, and missing items are tombstoned (`source_status = 'deleted'`) rather than deleted. Memberships are closed with `left_at`.
+  6. **`core_users.member_id`** — the "this is me" check uses an explicit composite foreign key to `core_members (tenant_id, id)` instead of matching on email.
+- **Consequences**: A failed or throttled provider degrades to a partial, retryable run with an explicit next safe action, and history is never destroyed. The dashboards stay in mock mode until the foundation is verified against a real organization.
+- **Alternatives**: `pg_cron` + `pg_net` calling Azure directly (rejected — credential in the database and no typed error handling), advisory locks (rejected — invisible to operators and lost on connection churn), hard deletes on missing items (rejected — a 403 is revoked access, not deletion).
+
 ## Phase 3 — Database foundation
 
 - **Inputs**: approved `database-blueprint.md`, `domain-model.md`, `security-and-access.md`.
