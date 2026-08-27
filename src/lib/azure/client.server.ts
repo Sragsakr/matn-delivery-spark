@@ -68,7 +68,9 @@ export class AzureDevOpsClient {
     this.timeoutMs = options.timeoutMs ?? 20_000;
     this.maxPages = options.maxPages ?? 50;
     this.maxRetries = options.maxRetries ?? 3;
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    // Bind the global: an unbound `fetch` reference throws "Illegal invocation"
+    // in the deployed worker runtime, which surfaced as a generic timeout.
+    this.fetchImpl = options.fetchImpl ?? ((input: RequestInfo | URL, init?: RequestInit) => fetch(input, init));
     this.sleep = options.sleep ?? defaultSleep;
     this.random = options.random ?? Math.random;
   }

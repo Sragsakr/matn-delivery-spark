@@ -93,3 +93,36 @@ export function decideStart(active: ActiveRunSnapshot | null, nowMs: number): St
 
 export const isLockExpired = (expiresAt: string | null, nowMs: number): boolean =>
   expiresAt ? Date.parse(expiresAt) <= nowMs : true;
+
+/**
+ * Domain dependency graph. A domain may only run when every domain it depends
+ * on finished a complete, failure-free scan.
+ */
+export const DOMAIN_DEPENDENCIES: Readonly<Record<SyncDomain, readonly SyncDomain[]>> = {
+  organization: [],
+  projects: ["organization"],
+  teams: ["projects"],
+  iterations: ["teams"],
+  teamIterations: ["teams"],
+  members: ["teams"],
+  teamMemberships: ["teams"],
+};
+
+/** Returns the first unmet dependency of a domain, or null when it may run. */
+export function blockingDependency(
+  domain: SyncDomain,
+  domains: Readonly<Record<SyncDomain, DomainCounts>>,
+): SyncDomain | null {
+  for (const dependency of DOMAIN_DEPENDENCIES[domain]) {
+    const counts = domains[dependency];
+    if (!counts?.complete || counts.failed > 0 || counts.blocked) return dependency;
+  }
+  return null;
+}
+
+/** A blocked domain is never complete, never fresh and never tombstoned. */
+export function blockedCounts(counts: DomainCounts, blockedBy: SyncDomain): DomainCounts {
+  return { ...counts, complete: false, freshnessAt: null, blocked: true, blockedBy };
+}
+
+export const isBlocked = (counts: DomainCounts): boolean => counts.blocked === true;

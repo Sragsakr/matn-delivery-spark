@@ -81,6 +81,10 @@ export interface DomainCounts {
   readonly failed: number;
   readonly complete: boolean;
   readonly freshnessAt: string | null;
+  /** True when the domain was skipped because a domain it depends on failed. */
+  readonly blocked?: boolean;
+  /** Sanitized reason code when the domain is blocked or partial. */
+  readonly blockedBy?: SyncDomain | null;
 }
 
 export type SyncRunStatus = "queued" | "running" | "succeeded" | "partial" | "failed" | "skipped";
@@ -131,4 +135,6 @@ export const emptyCounts = (): DomainCounts => ({
   failed: 0,
   complete: false,
   freshnessAt: null,
+  blocked: false,
+  blockedBy: null,
 });
