@@ -229,18 +229,27 @@ function toFunnel(snapshot: DeliverySnapshot): FunnelStageContract[] {
 
 function toTeamLoad(snapshot: DeliverySnapshot): TeamLoadEntryContract[] {
   return snapshot.teamLoad.map((member) => {
+    const capacity = member.capacityHours;
+    const assigned = member.assignedHours;
     const utilization =
-      member.capacityHours > 0 ? (member.assignedHours / member.capacityHours) * 100 : null;
+      capacity !== null && capacity > 0 && assigned !== null ? (assigned / capacity) * 100 : null;
     return {
       memberId: member.id,
       name: member.name,
       role: member.role,
-      capacityHours: member.capacityHours,
-      assignedHours: member.assignedHours,
+      capacityHours: capacity,
+      assignedHours: assigned,
       activeItems: member.activeItems,
       blockedItems: member.blockedItems,
       utilizationPercentage: measure(utilization === null ? null : Math.round(utilization)),
-      band: member.signal === "over" ? "over" : member.signal === "under" ? "under" : "balanced",
+      band:
+        member.signal === "over"
+          ? "over"
+          : member.signal === "under"
+            ? "under"
+            : member.signal === "unknown"
+              ? "unknown"
+              : "balanced",
     };
   });
 }
