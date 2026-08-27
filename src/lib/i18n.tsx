@@ -306,6 +306,71 @@ export const dictionary = {
   "auth.submit": { ar: "دخول", en: "Sign in" },
   "auth.pending": { ar: "جارٍ الدخول…", en: "Signing in…" },
   "auth.failed": { ar: "تعذّر تسجيل الدخول. تحقّق من البيانات وحاول مجددًا.", en: "Sign-in failed. Check your details and try again." },
+  "auth.mode.signIn": { ar: "تسجيل الدخول", en: "Sign in" },
+  "auth.mode.signUp": { ar: "إنشاء حساب", en: "Sign up" },
+  "auth.signUp.submit": { ar: "إنشاء الحساب", en: "Create account" },
+  "auth.signUp.pending": { ar: "جارٍ إنشاء الحساب…", en: "Creating account…" },
+  "auth.signUp.subtitle": {
+    ar: "أنشئ حسابك لإدارة مساحة العمل واتصال Azure DevOps.",
+    en: "Create your account to manage the workspace and the Azure DevOps connection.",
+  },
+  "auth.signUp.checkEmail": {
+    ar: "تم إرسال رسالة تأكيد إلى بريدك الإلكتروني. افتح الرابط ثم عد لتسجيل الدخول.",
+    en: "A confirmation email has been sent. Open the link, then return here to sign in.",
+  },
+  "auth.signUp.failed": {
+    ar: "تعذّر إنشاء الحساب. قد يكون البريد مستخدمًا أو كلمة المرور ضعيفة.",
+    en: "Sign-up failed. The email may already be in use, or the password is too weak.",
+  },
+  "auth.unverified": {
+    ar: "لم يتم تأكيد بريدك الإلكتروني بعد. افتح رابط التأكيد في بريدك ثم حدّث الصفحة.",
+    en: "Your email is not verified yet. Open the confirmation link in your inbox, then refresh.",
+  },
+  "auth.signOut": { ar: "تسجيل الخروج", en: "Sign out" },
+
+  "onboarding.title": { ar: "إنشاء مساحة العمل", en: "Create workspace" },
+  "onboarding.subtitle": {
+    ar: "لا توجد مساحة عمل بعد. أنشئ المساحة الأولى وستصبح مسؤولها.",
+    en: "No workspace exists yet. Create the first one and you become its administrator.",
+  },
+  "onboarding.name": { ar: "اسم مساحة العمل", en: "Workspace name" },
+  "onboarding.slug": { ar: "المعرّف المختصر", en: "Workspace slug" },
+  "onboarding.slugHint": {
+    ar: "حروف إنجليزية صغيرة وأرقام وشرطات فقط.",
+    en: "Lowercase letters, numbers and hyphens only.",
+  },
+  "onboarding.submit": { ar: "إنشاء", en: "Create" },
+  "onboarding.pending": { ar: "جارٍ الإنشاء…", en: "Creating…" },
+  "onboarding.checking": { ar: "جارٍ التحقق…", en: "Checking…" },
+  "onboarding.needsInvite": {
+    ar: "حسابك يحتاج إلى دعوة من مسؤول مساحة العمل.",
+    en: "Your account needs an invitation from the workspace administrator.",
+  },
+  "onboarding.error.tenant_exists": {
+    ar: "توجد مساحة عمل بالفعل. حسابك يحتاج إلى دعوة من مسؤول مساحة العمل.",
+    en: "A workspace already exists. Your account needs an invitation from the workspace administrator.",
+  },
+  "onboarding.error.already_member": {
+    ar: "حسابك مرتبط بمساحة عمل بالفعل.",
+    en: "Your account already belongs to a workspace.",
+  },
+  "onboarding.error.already_provisioned": {
+    ar: "تم تعيين مسؤول أولي بالفعل.",
+    en: "An initial administrator has already been provisioned.",
+  },
+  "onboarding.error.email_unverified": {
+    ar: "لم يتم تأكيد بريدك الإلكتروني بعد.",
+    en: "Your email is not verified yet.",
+  },
+  "onboarding.error.unauthenticated": {
+    ar: "الجلسة غير صالحة. سجّل الدخول مجددًا.",
+    en: "Invalid session. Please sign in again.",
+  },
+  "onboarding.error.invalid_name": { ar: "اسم غير صالح.", en: "Invalid workspace name." },
+  "onboarding.error.invalid_slug": { ar: "معرّف غير صالح.", en: "Invalid workspace slug." },
+  "onboarding.error.invalid_identity": { ar: "هوية غير صالحة.", en: "Invalid identity." },
+  "onboarding.error.unknown": { ar: "تعذّر إكمال العملية.", en: "The operation could not be completed." },
+
 
   "azure.title": { ar: "اتصال Azure DevOps", en: "Azure DevOps Connection" },
   "azure.subtitle": {
