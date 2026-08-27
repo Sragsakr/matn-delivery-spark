@@ -129,7 +129,7 @@ describe("validateBootstrapInput", () => {
   });
 
   it("rejects reserved, malformed and CI slugs", () => {
-    for (const slug of ["matn-demo", "ci-test", "M", "UPPER", "bad slug", "-lead"]) {
+    for (const slug of ["matn-demo", "ci-test", "M", "ab", "bad slug", "UPPER_CASE", "-lead"]) {
       expect(validateBootstrapInput({ tenantName: "X", tenantSlug: slug })).toBe("invalid_slug");
     }
   });
