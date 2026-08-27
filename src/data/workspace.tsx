@@ -354,6 +354,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     syncMessage,
     runSync,
     options,
+    syncReport,
+    syncFailed,
+
   ]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
