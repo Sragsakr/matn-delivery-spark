@@ -15,9 +15,12 @@ import { AzureDevOpsClient } from "./client.server";
 import { AzureDevOpsError, toAzureFailure } from "./errors";
 import { emptyCounts, SYNC_DOMAINS, type DomainCounts, type SyncDomain, type SyncRunReport } from "./contracts";
 import { discoverAzureProjectsBounded } from "./discovery.server";
+import { readProjectTeams } from "./teams.server";
 import {
   ADVANCE_BUDGET_MS,
   LOCK_TTL_MS,
+  blockedCounts,
+  blockingDependency,
   canTombstone,
   decideStart,
   deriveRunStatus,
@@ -531,6 +534,13 @@ async function runUnit(
   }
 
   if (cursor.domain === "iterations") {
+    const dependency = blockingDependency("iterations", state.domains);
+    if (dependency) {
+      state.domains.iterations = blockedCounts(state.domains.iterations, dependency);
+      state.domains.teamIterations = blockedCounts(state.domains.teamIterations, dependency);
+      state.warnings.push(`iterations_skipped_dependency:${dependency}`);
+      return false;
+    }
     const teams = await listTeamsFromDb(tenantId, organizationId);
     const team = teams[cursor.index];
     if (!team) {
@@ -615,6 +625,13 @@ async function runUnit(
   }
 
   if (cursor.domain === "members") {
+    const dependency = blockingDependency("members", state.domains);
+    if (dependency) {
+      state.domains.members = blockedCounts(state.domains.members, dependency);
+      state.domains.teamMemberships = blockedCounts(state.domains.teamMemberships, dependency);
+      state.warnings.push(`members_skipped_dependency:${dependency}`);
+      return false;
+    }
     const teams = await listTeamsFromDb(tenantId, organizationId);
     const team = teams[cursor.index];
     if (!team) {
