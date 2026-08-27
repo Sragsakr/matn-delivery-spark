@@ -4,11 +4,16 @@
  */
 export type AzureErrorCode =
   | "not_configured"
+  | "missing_configuration"
+  | "invalid_configuration"
   | "invalid_credentials"
   | "insufficient_permissions"
   | "organization_not_found"
   | "throttled"
   | "timeout"
+  | "request_timeout"
+  | "network_unreachable"
+  | "provider_unavailable"
   | "unavailable"
   | "partial_sync"
   | "conflict"
