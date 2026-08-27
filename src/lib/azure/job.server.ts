@@ -412,35 +412,68 @@ async function runUnit(
       return false;
     }
     for (const project of discovery.projects) {
-      const { data, error } = await supabaseAdmin
+      const source = {
+        azureProjectId: project.azureProjectId,
+        name: project.name,
+        description: project.description,
+        state: project.state,
+        visibility: project.visibility,
+        processTemplateKind: templateFromName(project.name),
+      };
+
+      // 1. Find the existing row by the exact tenant-scoped natural key.
+      const { data: existing, error: readError } = await supabaseAdmin
         .from("core_projects")
-        .upsert(
-          {
-            tenant_id: tenantId,
-            organization_id: organizationId,
-            azure_project_id: project.azureProjectId,
-            azure_project_name: project.name,
-            name_en: project.name,
-            name_ar: project.name,
-            description: project.description,
-            process_template_kind: templateFromName(project.name),
-            visibility: project.visibility,
-            state: project.state,
-            source_status: "active",
-            is_deleted: false,
-            last_seen_at: nowIso,
-            last_synced_at: nowIso,
-          },
-          { onConflict: "tenant_id,organization_id,azure_project_id" },
+        .select(
+          "id, azure_project_id, azure_project_name, name_en, description, process_template_kind, visibility, state, source_status, is_deleted",
         )
-        .select("id, created_at")
-        .single();
-      if (error || !data) {
+        .eq("tenant_id", tenantId)
+        .eq("organization_id", organizationId)
+        .eq("azure_project_id", project.azureProjectId)
+        .maybeSingle();
+
+      if (readError) {
         add(state, "projects", "failed");
+        state.warnings.push(`projects_read_failed:${readError.code ?? "unknown"}`);
+        await checkpoint(tenantId, state);
         continue;
       }
-      if (data.created_at >= state.startedAt) add(state, "projects", "inserted");
-      else add(state, "projects", "updated");
+
+      if (!existing) {
+        const payload = mutableProjectPayload(source);
+        const { error } = await supabaseAdmin.from("core_projects").insert({
+          tenant_id: tenantId,
+          organization_id: organizationId,
+          azure_project_id: project.azureProjectId,
+          name_ar: payload.name_en,
+          ...payload,
+          last_seen_at: nowIso,
+          last_synced_at: nowIso,
+        });
+        if (error) {
+          add(state, "projects", "failed");
+          state.warnings.push(`projects_insert_failed:${error.code ?? "unknown"}`);
+        } else {
+          add(state, "projects", "inserted");
+        }
+        await checkpoint(tenantId, state);
+        continue;
+      }
+
+      // 2-3. Preserve the internal UUID; compare normalized mutable fields only.
+      const patch = diffProject(existing, source);
+      const { error } = await supabaseAdmin
+        .from("core_projects")
+        .update({ ...(patch ?? {}), last_seen_at: nowIso, last_synced_at: nowIso })
+        .eq("tenant_id", tenantId)
+        .eq("id", existing.id);
+      if (error) {
+        add(state, "projects", "failed");
+        state.warnings.push(`projects_update_failed:${error.code ?? "unknown"}`);
+      } else {
+        add(state, "projects", patch ? "updated" : "unchanged");
+      }
+      await checkpoint(tenantId, state);
     }
     const scanReachedEnd = discovery.status === "complete";
     bump(state, "projects", {
