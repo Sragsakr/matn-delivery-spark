@@ -36,7 +36,7 @@ function RiskRow({ risk, open, onToggle }: { risk: Risk; open: boolean; onToggle
           <span className="block text-sm font-medium text-foreground">{risk.title[locale]}</span>
           <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <span>
-              {t("risks.owner")}: <Iso>{risk.owner}</Iso>
+              {t("risks.owner")}: <Iso>{risk.owner.trim() || t("risks.unassigned")}</Iso>
             </span>
             <span>
               {t("risks.age")}: <Iso>{days(risk.ageDays)}</Iso>
