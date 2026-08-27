@@ -2793,6 +2793,7 @@ export type Database = {
           is_active: boolean
           last_seen_at: string | null
           locale: string
+          member_id: string | null
           tenant_id: string
           updated_at: string
         }
@@ -2805,6 +2806,7 @@ export type Database = {
           is_active?: boolean
           last_seen_at?: string | null
           locale?: string
+          member_id?: string | null
           tenant_id: string
           updated_at?: string
         }
@@ -2817,10 +2819,18 @@ export type Database = {
           is_active?: boolean
           last_seen_at?: string | null
           locale?: string
+          member_id?: string | null
           tenant_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "core_users_member_tenant_fkey"
+            columns: ["tenant_id", "member_id"]
+            isOneToOne: false
+            referencedRelation: "core_members"
+            referencedColumns: ["tenant_id", "id"]
+          },
           {
             foreignKeyName: "core_users_tenant_id_fkey"
             columns: ["tenant_id"]
