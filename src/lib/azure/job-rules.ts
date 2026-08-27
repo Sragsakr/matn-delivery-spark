@@ -20,11 +20,54 @@ export interface JobCursor {
   readonly index: number;
 }
 
+/** Per-domain scan progress over its parent scopes (projects / teams). */
+export interface ScopeTally {
+  readonly attempted: number;
+  readonly completed: number;
+}
+
+export type DomainStatus = "complete" | "partial" | "failed" | "blocked";
+
+/**
+ * Status invariants shared by every foundation domain:
+ * - complete: every attempted scope finished and no work unit failed
+ *   (a successful response with zero records is still complete);
+ * - partial: at least one success AND at least one failed/incomplete unit;
+ * - failed: no success and at least one explicit failure;
+ * - blocked: a required dependency is not complete.
+ */
+export function domainStatus(counts: DomainCounts, tally?: ScopeTally): DomainStatus {
+  if (counts.blocked) return "blocked";
+  const incompleteScopes = tally ? Math.max(0, tally.attempted - tally.completed) : 0;
+  if (counts.failed === 0 && incompleteScopes === 0) return "complete";
+  const hasSuccess =
+    counts.inserted + counts.updated + counts.unchanged > 0 || (tally ? tally.completed > 0 : false);
+  return hasSuccess ? "partial" : "failed";
+}
+
+/** Sets the completion flag/freshness of a scoped domain from its tally. */
+export function finalizeScopedDomain(
+  counts: DomainCounts,
+  tally: ScopeTally,
+  nowIso: string,
+): { readonly counts: DomainCounts; readonly status: DomainStatus; readonly incompleteScopes: number } {
+  const status = domainStatus(counts, tally);
+  const complete = status === "complete";
+  return {
+    counts: { ...counts, complete, freshnessAt: complete ? (counts.freshnessAt ?? nowIso) : counts.freshnessAt },
+    status,
+    incompleteScopes: Math.max(0, tally.attempted - tally.completed),
+  };
+}
+
 export interface JobState extends SyncRunReport {
   readonly cursor: JobCursor | null;
   /** Domains that finished a full successful scan and may be tombstoned. */
   readonly scannedDomains: readonly SyncDomain[];
+  /** Scope progress per scoped domain, persisted so resumed runs stay accurate. */
+  readonly scopes?: Readonly<Partial<Record<SyncDomain, ScopeTally>>>;
 }
+
 
 /** Time budget for one interactive advance call; well under the hosting deadline. */
 export const ADVANCE_BUDGET_MS = 15_000;
