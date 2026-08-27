@@ -20,6 +20,7 @@ import {
 } from "./wiql";
 import { resolveProcessMapping, type ProcessMappingRow } from "./process-mapping";
 import { diffWorkItem, mapAzureWorkItem, type AzureIdentityLike } from "./workitem-map";
+import { ensureConnection } from "./sync.server";
 import type { ResolvedTeamIteration } from "@/lib/workspace/context.server";
 
 export type WorkItemSyncPhase = "discover" | "read" | "reconcile" | "done";
@@ -119,10 +120,12 @@ export async function startWorkItemSync(
   }
 
   const cursor = emptyCursor(target.teamIterationId);
+  const connectionId = await ensureConnection(target.tenantId, target.organizationId);
   const { data, error } = await supabaseAdmin
     .from("ops_sync_runs")
     .insert({
       tenant_id: target.tenantId,
+      connection_id: connectionId,
       organization_id: target.organizationId,
       project_id: target.projectId,
       trigger_kind: "manual",
