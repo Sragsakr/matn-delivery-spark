@@ -46,7 +46,7 @@ export interface FoundationSyncInput {
 }
 
 /** Ensures the organization row exists and returns its internal id. */
-async function ensureOrganization(tenantId: string, organizationName: string, nowIso: string): Promise<string> {
+export async function ensureOrganization(tenantId: string, organizationName: string, nowIso: string): Promise<string> {
   const { data, error } = await supabaseAdmin
     .from("core_organizations")
     .upsert(
@@ -69,7 +69,7 @@ async function ensureOrganization(tenantId: string, organizationName: string, no
   return data.id;
 }
 
-async function ensureConnection(tenantId: string, organizationId: string): Promise<string> {
+export async function ensureConnection(tenantId: string, organizationId: string): Promise<string> {
   const { data } = await supabaseAdmin
     .from("ops_sync_connections")
     .select("id")
