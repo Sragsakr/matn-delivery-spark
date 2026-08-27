@@ -46,6 +46,21 @@ type Options = {
   iterations: Iteration[];
 };
 
+/** Honest work-item/Overview data state — never Foundation-sync freshness. */
+export type RealDataState = "notSynced" | "syncing" | "current" | "partial" | "failed" | "stale";
+
+export type WorkItemSyncReport = {
+  readonly discoveredIds: number;
+  readonly read: number;
+  readonly inserted: number;
+  readonly updated: number;
+  readonly unchanged: number;
+  readonly detached: number;
+  readonly failed: number;
+  readonly truncated: boolean;
+  readonly status: "succeeded" | "partial" | "failed";
+};
+
 type Ctx = {
   mode: WorkspaceMode;
   filters: WorkspaceFilters;
@@ -63,7 +78,12 @@ type Ctx = {
   syncMessage: string | null;
   runSync: () => void;
   options: Options;
+  dataState: RealDataState;
+  syncReport: WorkItemSyncReport | null;
+  /** True when the sprint has no real start/finish dates. */
+  sprintDatesUnavailable: boolean;
 };
+
 
 const WorkspaceContext = createContext<Ctx | null>(null);
 
@@ -78,6 +98,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [previewState, setPreviewState] = useState<PreviewState>("normal");
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [syncReport, setSyncReport] = useState<WorkItemSyncReport | null>(null);
+  const [syncFailed, setSyncFailed] = useState(false);
+
 
   const selectorsQuery = useQuery({
     queryKey: ["workspace", "selectors"],
@@ -209,10 +232,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     if (mode !== "real" || !filters.iterationId || syncing) return;
     setSyncing(true);
     setSyncMessage(null);
+    setSyncReport(null);
     try {
       const started = await startSprintWorkItemSync({ data: { teamIterationId: filters.iterationId } });
       if (!started.ok) {
         setSyncMessage(started.failure.message);
+        setSyncFailed(true);
         return;
       }
       let status = started.status;
@@ -222,14 +247,29 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         });
         if (!advanced.ok) {
           setSyncMessage(advanced.failure.message);
+          setSyncFailed(true);
           return;
         }
         status = advanced.status;
         if (status.status === "failed") {
           setSyncMessage(status.failure?.message ?? null);
+          setSyncFailed(true);
           return;
         }
       }
+      const c = status.cursor;
+      setSyncFailed(false);
+      setSyncReport({
+        discoveredIds: c.ids.length,
+        read: c.inserted + c.updated + c.unchanged,
+        inserted: c.inserted,
+        updated: c.updated,
+        unchanged: c.unchanged,
+        detached: c.removedFromSprint,
+        failed: c.failed,
+        truncated: c.truncated,
+        status: status.status === "partial" ? "partial" : status.status === "failed" ? "failed" : "succeeded",
+      });
       await queryClient.invalidateQueries({ queryKey: ["workspace", "overview"] });
       setTick((t) => t + 1);
     } finally {
@@ -239,13 +279,31 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<Ctx>(() => {
     const realIteration = selectors?.teamIterations.find((it) => it.id === filters.iterationId);
+    const snapshot = mode === "real" ? (realOverview?.snapshot ?? null) : mockSnapshot;
+    const unavailable = mode === "real" ? (realOverview?.unavailable ?? {}) : {};
+    const error =
+      mode === "real"
+        ? overviewQuery.isError || overviewQuery.data?.ok === false
+        : previewState === "error";
+
+    const dataState: RealDataState = (() => {
+      if (mode !== "real") return snapshot?.freshness === "stale" ? "stale" : "current";
+      if (syncing) return "syncing";
+      if (error || syncFailed) return "failed";
+      if (unavailable["workItems"]) return "notSynced";
+      if (syncReport?.status === "partial" || syncReport?.failed) return "partial";
+      if (snapshot?.freshness === "stale") return "stale";
+      if (snapshot?.freshness === "partial") return "partial";
+      return "current";
+    })();
+
     return {
       mode,
       filters,
       previewState,
       setPreviewState,
       setFilter,
-      snapshot: mode === "real" ? (realOverview?.snapshot ?? null) : mockSnapshot,
+      snapshot,
       iteration:
         mode === "real"
           ? realIteration
@@ -264,20 +322,21 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         mode === "real"
           ? selectorsQuery.isLoading || overviewQuery.isLoading || !realSelectionReady
           : previewState === "loading" || baseLoading,
-      error:
-        mode === "real"
-          ? overviewQuery.isError || overviewQuery.data?.ok === false
-          : previewState === "error",
+      error,
       refresh: () => setTick((t) => t + 1),
-      unavailable: mode === "real" ? (realOverview?.unavailable ?? {}) : {},
+      unavailable,
       syncing,
       syncMessage,
       runSync: () => {
         void runSync();
       },
       options,
+      dataState,
+      syncReport,
+      sprintDatesUnavailable: mode === "real" && Boolean(unavailable["sprintCalendar"]),
     };
   }, [
+
     mode,
     filters,
     previewState,
@@ -295,6 +354,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     syncMessage,
     runSync,
     options,
+    syncReport,
+    syncFailed,
+
   ]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

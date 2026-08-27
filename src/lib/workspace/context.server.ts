@@ -209,52 +209,55 @@ export async function requireTeamIteration(
   context: TenantContext,
   teamIterationId: string,
 ): Promise<ResolvedTeamIteration> {
+  // Only `core_iterations` is reachable by an embed: `core_team_iterations`
+  // has no foreign key to projects or organizations (only tenant+project
+  // composite keys to iterations and teams), so those are read explicitly.
   const { data, error } = await supabaseAdmin
     .from("core_team_iterations")
-    .select(
-      "id, tenant_id, organization_id, project_id, team_id, iteration_id, time_zone, working_weekdays, " +
-        "core_iterations(name_en, name_ar, start_date, finish_date, azure_iteration_path), " +
-        "core_projects(azure_project_id, azure_project_name, process_template_kind), " +
-        "core_teams(process_mapping_id), " +
-        "core_organizations(base_url)",
-    )
+    .select("id, tenant_id, organization_id, project_id, team_id, iteration_id, time_zone, working_weekdays")
     .eq("tenant_id", context.tenantId)
     .eq("id", teamIterationId)
     .maybeSingle();
 
   if (error) throw new AzureDevOpsError("unknown");
   if (!data) throw new AzureDevOpsError("forbidden");
-
-  const row = data as unknown as {
-    id: string;
-    tenant_id: string;
-    organization_id: string;
-    project_id: string;
-    team_id: string;
-    iteration_id: string;
-    time_zone: string;
-    working_weekdays: number[] | null;
-    core_iterations: {
-      name_en: string;
-      name_ar: string;
-      start_date: string | null;
-      finish_date: string | null;
-      azure_iteration_path: string;
-    } | null;
-    core_projects: {
-      azure_project_id: string;
-      azure_project_name: string;
-      process_template_kind: ResolvedTeamIteration["processTemplateKind"];
-    } | null;
-    core_teams: { process_mapping_id: string | null } | null;
-    core_organizations: { base_url: string } | null;
-  };
+  const row = data;
 
   const scope = await resolveScope(context);
   if (scope.projectIds && !scope.projectIds.includes(row.project_id)) throw new AzureDevOpsError("forbidden");
   if (scope.teamIds && !scope.teamIds.includes(row.team_id)) throw new AzureDevOpsError("forbidden");
 
-  if (!row.core_iterations || !row.core_projects) throw new AzureDevOpsError("invalid_configuration");
+  const [iteration, project, team, organization] = await Promise.all([
+    supabaseAdmin
+      .from("core_iterations")
+      .select("name_en, name_ar, start_date, finish_date, azure_iteration_path")
+      .eq("tenant_id", row.tenant_id)
+      .eq("id", row.iteration_id)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("core_projects")
+      .select("azure_project_id, azure_project_name, process_template_kind")
+      .eq("tenant_id", row.tenant_id)
+      .eq("id", row.project_id)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("core_teams")
+      .select("process_mapping_id")
+      .eq("tenant_id", row.tenant_id)
+      .eq("id", row.team_id)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("core_organizations")
+      .select("base_url")
+      .eq("tenant_id", row.tenant_id)
+      .eq("id", row.organization_id)
+      .maybeSingle(),
+  ]);
+
+  if (iteration.error || project.error || team.error || organization.error) {
+    throw new AzureDevOpsError("unknown");
+  }
+  if (!iteration.data || !project.data) throw new AzureDevOpsError("invalid_configuration");
 
   return {
     teamIterationId: row.id,
@@ -263,17 +266,18 @@ export async function requireTeamIteration(
     projectId: row.project_id,
     teamId: row.team_id,
     iterationId: row.iteration_id,
-    azureProjectId: row.core_projects.azure_project_id,
-    azureProjectName: row.core_projects.azure_project_name,
-    organizationBaseUrl: row.core_organizations?.base_url ?? "https://dev.azure.com",
-    iterationPath: row.core_iterations.azure_iteration_path,
-    iterationNameEn: row.core_iterations.name_en,
-    iterationNameAr: row.core_iterations.name_ar,
-    startDate: row.core_iterations.start_date,
-    finishDate: row.core_iterations.finish_date,
+    azureProjectId: project.data.azure_project_id,
+    azureProjectName: project.data.azure_project_name,
+    organizationBaseUrl: organization.data?.base_url ?? "https://dev.azure.com",
+    iterationPath: iteration.data.azure_iteration_path,
+    iterationNameEn: iteration.data.name_en,
+    iterationNameAr: iteration.data.name_ar,
+    startDate: iteration.data.start_date,
+    finishDate: iteration.data.finish_date,
     timeZone: row.time_zone,
     workingWeekdays: row.working_weekdays ?? [0, 1, 2, 3, 4],
-    processMappingId: row.core_teams?.process_mapping_id ?? null,
-    processTemplateKind: row.core_projects.process_template_kind,
+    processMappingId: team.data?.process_mapping_id ?? null,
+    processTemplateKind: project.data.process_template_kind,
   };
 }
+
