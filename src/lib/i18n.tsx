@@ -216,6 +216,25 @@ export const dictionary = {
     ar: "لا توجد تواريخ للسبرنت، لذلك لا يمكن حساب التقدم المتوقع.",
     en: "This sprint has no dates, so expected progress cannot be computed.",
   },
+  "real.state.notSynced": { ar: "لم تتم المزامنة بعد", en: "Not synchronized" },
+  "real.state.syncing": { ar: "جارٍ المزامنة…", en: "Syncing…" },
+  "real.state.current": { ar: "بيانات محدّثة", en: "Data current" },
+  "real.state.partial": { ar: "مزامنة جزئية", en: "Partially synchronized" },
+  "real.state.stale": { ar: "بيانات قديمة", en: "Data stale" },
+  "real.state.failed": { ar: "فشلت المزامنة", en: "Sync failed" },
+  "real.sprintDates.unavailable": { ar: "تواريخ السبرنت غير متاحة", en: "Sprint dates unavailable" },
+  "real.sync.reportTitle": { ar: "نتيجة مزامنة عناصر العمل", en: "Work item sync result" },
+  "real.sync.report": {
+    ar: "تم اكتشاف {a} عنصرًا · قراءة {b} · إضافة {c} · تحديث {d} · دون تغيير {e} · خارج السبرنت {f} · فشل {g}",
+    en: "{a} discovered · {b} read · {c} inserted · {d} updated · {e} unchanged · {f} detached · {g} failed",
+  },
+  "real.sync.truncated": {
+    ar: "تم بلوغ الحد الأقصى لعدد العناصر، لذلك النتيجة غير مكتملة.",
+    en: "The per-sprint item ceiling was reached, so this result is incomplete.",
+  },
+  "overview.copilot.comingSoon": { ar: "قريبًا", en: "Coming soon" },
+
+
 
   "eng.hours": { ar: "ساعة", en: "h" },
 
