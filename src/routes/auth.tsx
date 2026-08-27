@@ -27,23 +27,52 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const { t, dir } = useI18n();
   const navigate = useNavigate();
+  const [mode, setMode] = useState<"signIn" | "signUp">("signIn");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setPending(true);
     setError(null);
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    setNotice(null);
+
+    if (mode === "signUp") {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: `${window.location.origin}/auth` },
+      });
+      setPending(false);
+      if (signUpError) {
+        setError(t("auth.signUp.failed"));
+        return;
+      }
+      if (!data.session) {
+        setNotice(t("auth.signUp.checkEmail"));
+        setMode("signIn");
+        return;
+      }
+      void navigate({ to: "/onboarding" });
+      return;
+    }
+
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
     setPending(false);
     if (signInError) {
       setError(t("auth.failed"));
       return;
     }
-    void navigate({ to: "/settings/azure" });
+    if (!data.user?.email_confirmed_at) {
+      setNotice(t("auth.unverified"));
+      return;
+    }
+    void navigate({ to: "/onboarding" });
   };
+
 
   return (
     <main dir={dir} className="grid min-h-dvh place-items-center bg-background px-4 py-10">
