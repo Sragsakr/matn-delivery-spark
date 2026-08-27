@@ -455,64 +455,78 @@ async function runUnit(
   }
 
   if (cursor.domain === "teams") {
+    const dependency = blockingDependency("teams", state.domains);
+    if (dependency) {
+      state.domains.teams = blockedCounts(state.domains.teams, dependency);
+      state.warnings.push(`teams_skipped_dependency:${dependency}`);
+      return false;
+    }
     const projects = await listProjectsFromDb(tenantId, organizationId);
     const project = projects[cursor.index];
     if (!project) {
+      const ok = state.domains.teams.failed === 0 && !state.domains.teams.blocked;
       bump(state, "teams", {
-        complete: state.domains.teams.failed === 0,
-        freshnessAt: state.domains.teams.freshnessAt ?? nowIso,
+        complete: ok,
+        freshnessAt: ok ? (state.domains.teams.freshnessAt ?? nowIso) : null,
       });
-      if (state.domains.teams.complete) state.scannedDomains.push("teams");
+      if (ok) state.scannedDomains.push("teams");
       return false;
     }
-    try {
-      const teams = await client.listTeams(project.azure_project_id);
-      add(state, "teams", "discovered", teams.length);
-      let failedHere = 0;
-      for (const team of teams) {
-        const fieldValues = await client.getTeamFieldValues(project.azure_project_id, team.id);
-        const settings = await client.getTeamSettings(project.azure_project_id, team.id);
-        const { data, error } = await supabaseAdmin
-          .from("core_teams")
-          .upsert(
-            {
-              tenant_id: tenantId,
-              organization_id: organizationId,
-              project_id: project.id,
-              azure_team_id: team.id,
-              azure_team_name: team.name,
-              name_en: team.name,
-              name_ar: team.name,
-              description: team.description ?? null,
-              area_paths: fieldValues ? fieldValues.values.map((v) => v.value) : [],
-              default_iteration_path: settings?.defaultIteration?.path ?? null,
-              source_status: "active",
-              is_deleted: false,
-              last_seen_at: nowIso,
-              last_synced_at: nowIso,
-            },
-            { onConflict: "tenant_id,project_id,azure_team_id" },
-          )
-          .select("id, created_at")
-          .single();
-        if (error || !data) {
-          failedHere += 1;
-          add(state, "teams", "failed");
-          continue;
-        }
-        if (data.created_at >= state.startedAt) add(state, "teams", "inserted");
-        else add(state, "teams", "updated");
-      }
-      // Per-project tombstones only after that project's scan fully succeeded.
-      if (failedHere === 0) {
-        const missing = await tombstone("core_teams", tenantId, { project_id: project.id }, nowIso);
-        add(state, "teams", "missing", missing);
-      }
-      bump(state, "teams", { freshnessAt: nowIso });
-    } catch {
+
+    // Bounded, project-id addressed read; partial pages are preserved.
+    const read = await readProjectTeams({
+      organization: state.organization,
+      pat: process.env["AZURE_DEVOPS_PAT"] ?? null,
+      azureProjectId: project.azure_project_id,
+    });
+    add(state, "teams", "discovered", read.teamCount);
+    let failedHere = read.status === "failed" ? 1 : 0;
+    if (read.status !== "complete") {
       add(state, "teams", "failed");
-      state.warnings.push(`teams_incomplete:${project.azure_project_id}`);
+      state.warnings.push(`teams_${read.status}:${project.azure_project_id}:${read.warning ?? "unknown"}`);
     }
+
+    for (const team of read.teams) {
+      const fieldValues = await client.getTeamFieldValues(project.azure_project_id, team.azureTeamId);
+      const settings = await client.getTeamSettings(project.azure_project_id, team.azureTeamId);
+      const { data, error } = await supabaseAdmin
+        .from("core_teams")
+        .upsert(
+          {
+            tenant_id: tenantId,
+            organization_id: organizationId,
+            project_id: project.id,
+            azure_team_id: team.azureTeamId,
+            azure_team_name: team.name,
+            name_en: team.name,
+            name_ar: team.name,
+            description: team.description,
+            area_paths: fieldValues ? fieldValues.values.map((v) => v.value) : [],
+            default_iteration_path: settings?.defaultIteration?.path ?? null,
+            source_status: "active",
+            is_deleted: false,
+            last_seen_at: nowIso,
+            last_synced_at: nowIso,
+          },
+          { onConflict: "tenant_id,project_id,azure_team_id" },
+        )
+        .select("id, created_at")
+        .single();
+      if (error || !data) {
+        failedHere += 1;
+        add(state, "teams", "failed");
+        continue;
+      }
+      if (data.created_at >= state.startedAt) add(state, "teams", "inserted");
+      else add(state, "teams", "updated");
+    }
+
+    // Per-project tombstones only after that project's scan fully succeeded.
+    if (failedHere === 0 && read.status === "complete") {
+      const missing = await tombstone("core_teams", tenantId, { project_id: project.id }, nowIso);
+      add(state, "teams", "missing", missing);
+    }
+    bump(state, "teams", { freshnessAt: nowIso });
     return cursor.index + 1 < projects.length;
   }
 
