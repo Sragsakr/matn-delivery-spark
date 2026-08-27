@@ -31,6 +31,8 @@ import {
   getWorkspaceSelectors,
   startSprintWorkItemSync,
 } from "@/lib/workspace/workspace.functions";
+import { supabase } from "@/integrations/supabase/client";
+
 
 export type PreviewState = "normal" | "loading" | "empty" | "error" | "stale" | "partial";
 
