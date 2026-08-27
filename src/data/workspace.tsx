@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   defaultFilters,
   getDeliverySnapshot,
@@ -16,13 +17,37 @@ import {
   projects,
   teams,
 } from "./mock";
-import type { DeliverySnapshot, Iteration, WorkspaceFilters } from "./types";
+import type {
+  DeliverySnapshot,
+  Iteration,
+  Organization,
+  Project,
+  Team,
+  WorkspaceFilters,
+} from "./types";
+import {
+  advanceSprintWorkItemSync,
+  getRealOverview,
+  getWorkspaceSelectors,
+  startSprintWorkItemSync,
+} from "@/lib/workspace/workspace.functions";
 
 export type PreviewState = "normal" | "loading" | "empty" | "error" | "stale" | "partial";
 
+/** Real synchronized data and mock data are never blended. */
+export type WorkspaceMode = "mock" | "real";
+
 export const isDevPreview = import.meta.env.DEV;
 
+type Options = {
+  organizations: Organization[];
+  projects: Project[];
+  teams: Team[];
+  iterations: Iteration[];
+};
+
 type Ctx = {
+  mode: WorkspaceMode;
   filters: WorkspaceFilters;
   previewState: PreviewState;
   setPreviewState: (s: PreviewState) => void;
@@ -32,89 +57,245 @@ type Ctx = {
   loading: boolean;
   error: boolean;
   refresh: () => void;
-  options: {
-    organizations: typeof organizations;
-    projects: typeof projects;
-    teams: typeof teams;
-    iterations: typeof iterations;
-  };
+  /** Metrics/sections with no trustworthy synchronized source. */
+  unavailable: Record<string, string>;
+  syncing: boolean;
+  syncMessage: string | null;
+  runSync: () => void;
+  options: Options;
 };
 
 const WorkspaceContext = createContext<Ctx | null>(null);
 
+const MAX_SYNC_ADVANCES = 40;
+
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [filters, setFilters] = useState<WorkspaceFilters>(defaultFilters);
+  const [touched, setTouched] = useState(false);
   const [baseLoading, setLoading] = useState(true);
   const [tick, setTick] = useState(0);
   const [previewState, setPreviewState] = useState<PreviewState>("normal");
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
-  const loading = previewState === "loading" || baseLoading;
-  const error = previewState === "error";
+  const selectorsQuery = useQuery({
+    queryKey: ["workspace", "selectors"],
+    queryFn: () => getWorkspaceSelectors(),
+    retry: false,
+    staleTime: 60_000,
+  });
 
-  // Mock async read. Replaced by a server function in the integration phase.
+  const selectors =
+    selectorsQuery.data?.ok && selectorsQuery.data.selectors.teamIterations.length > 0
+      ? selectorsQuery.data.selectors
+      : null;
+
+  const mode: WorkspaceMode = selectors ? "real" : "mock";
+
+  // Adopt the server-resolved current sprint once, before the user chooses.
   useEffect(() => {
+    if (!selectors || touched) return;
+    const d = selectors.defaults;
+    if (!d.teamIterationId) return;
+    setFilters({
+      organizationId: d.organizationId ?? "",
+      projectId: d.projectId ?? "",
+      teamId: d.teamId ?? "",
+      iterationId: d.teamIterationId,
+    });
+  }, [selectors, touched]);
+
+  const realSelectionReady = Boolean(selectors && filters.iterationId && selectors.teamIterations.some((it) => it.id === filters.iterationId));
+
+  const overviewQuery = useQuery({
+    queryKey: ["workspace", "overview", filters.iterationId, tick],
+    queryFn: () => getRealOverview({ data: { teamIterationId: filters.iterationId } }),
+    enabled: realSelectionReady,
+    retry: false,
+  });
+
+  const realOverview = overviewQuery.data?.ok ? overviewQuery.data.overview : null;
+
+  // Mock async read, used only while the workspace has no synchronized sprint.
+  useEffect(() => {
+    if (mode === "real") return;
     setLoading(true);
     const timer = setTimeout(() => setLoading(false), 550);
     return () => clearTimeout(timer);
-  }, [filters, tick]);
+  }, [filters, tick, mode]);
 
-  const setFilter = useCallback((key: keyof WorkspaceFilters, value: string) => {
-    setFilters((prev) => {
-      const next: WorkspaceFilters = { ...prev, [key]: value };
-      if (key === "organizationId") {
-        const p = projects.find((x) => x.organizationId === value);
-        next.projectId = p?.id ?? prev.projectId;
-      }
-      if (key === "organizationId" || key === "projectId") {
-        const t = teams.find((x) => x.projectId === next.projectId);
-        next.teamId = t?.id ?? prev.teamId;
-      }
-      if (key !== "iterationId") {
-        const it = iterations.find((x) => x.teamId === next.teamId);
-        next.iterationId = it?.id ?? prev.iterationId;
-      }
-      return next;
-    });
-  }, []);
+  const setFilter = useCallback(
+    (key: keyof WorkspaceFilters, value: string) => {
+      setTouched(true);
+      setFilters((prev) => {
+        const next: WorkspaceFilters = { ...prev, [key]: value };
+        if (selectors) {
+          if (key === "organizationId") {
+            next.projectId = selectors.projects.find((p) => p.organizationId === value)?.id ?? "";
+          }
+          if (key === "organizationId" || key === "projectId") {
+            next.teamId = selectors.teams.find((t) => t.projectId === next.projectId)?.id ?? "";
+          }
+          if (key !== "iterationId") {
+            const list = selectors.teamIterations.filter((it) => it.teamId === next.teamId);
+            next.iterationId = (list.find((it) => it.isCurrent) ?? list[list.length - 1])?.id ?? "";
+          }
+          return next;
+        }
+        if (key === "organizationId") {
+          next.projectId = projects.find((x) => x.organizationId === value)?.id ?? prev.projectId;
+        }
+        if (key === "organizationId" || key === "projectId") {
+          next.teamId = teams.find((x) => x.projectId === next.projectId)?.id ?? prev.teamId;
+        }
+        if (key !== "iterationId") {
+          next.iterationId = iterations.find((x) => x.teamId === next.teamId)?.id ?? prev.iterationId;
+        }
+        return next;
+      });
+    },
+    [selectors],
+  );
 
-  const snapshot = useMemo(() => {
-    if (loading || error) return null;
-    const base = getDeliverySnapshot(filters);
-    if (previewState === "empty") {
+  const options = useMemo<Options>(() => {
+    if (!selectors) {
       return {
-        ...base,
-        kpis: [],
-        risks: [],
-        funnel: [],
-        teamLoad: [],
-        actions: [],
-      };
-    }
-    if (previewState === "stale") return { ...base, freshness: "stale" as const, lastSyncMinutesAgo: 96 };
-    if (previewState === "partial") return { ...base, freshness: "partial" as const, actions: base.actions.slice(0, 1) };
-    return base;
-  }, [filters, loading, error, previewState]);
-
-  const value = useMemo<Ctx>(
-    () => ({
-      filters,
-      previewState,
-      setPreviewState,
-      setFilter,
-      snapshot,
-      iteration: getIteration(filters.iterationId),
-      loading,
-      error,
-      refresh: () => setTick((t) => t + 1),
-      options: {
         organizations,
         projects: projects.filter((p) => p.organizationId === filters.organizationId),
         teams: teams.filter((t) => t.projectId === filters.projectId),
         iterations: iterations.filter((i) => i.teamId === filters.teamId),
+      };
+    }
+    const total = realOverview?.sprint.totalWorkingDays ?? 0;
+    const current = realOverview?.sprint.currentWorkingDay ?? 0;
+    return {
+      organizations: selectors.organizations.map((o) => ({ id: o.id, name: { ar: o.nameAr, en: o.nameEn } })),
+      projects: selectors.projects
+        .filter((p) => !filters.organizationId || p.organizationId === filters.organizationId)
+        .map((p) => ({ id: p.id, organizationId: p.organizationId, name: { ar: p.nameAr, en: p.nameEn } })),
+      teams: selectors.teams
+        .filter((t) => !filters.projectId || t.projectId === filters.projectId)
+        .map((t) => ({ id: t.id, projectId: t.projectId, name: { ar: t.nameAr, en: t.nameEn } })),
+      iterations: selectors.teamIterations
+        .filter((it) => !filters.teamId || it.teamId === filters.teamId)
+        .map((it) => ({
+          id: it.id,
+          teamId: it.teamId,
+          name: { ar: it.nameAr, en: it.nameEn },
+          startDate: it.startDate ?? "",
+          endDate: it.finishDate ?? "",
+          currentDay: it.id === filters.iterationId ? current : 0,
+          totalDays: it.id === filters.iterationId ? total : 0,
+        })),
+    };
+  }, [selectors, filters, realOverview]);
+
+  const mockSnapshot = useMemo(() => {
+    if (mode === "real") return null;
+    if (baseLoading || previewState === "loading" || previewState === "error") return null;
+    const base = getDeliverySnapshot(filters);
+    if (previewState === "empty") {
+      return { ...base, kpis: [], risks: [], funnel: [], teamLoad: [], actions: [] };
+    }
+    if (previewState === "stale") return { ...base, freshness: "stale" as const, lastSyncMinutesAgo: 96 };
+    if (previewState === "partial") {
+      return { ...base, freshness: "partial" as const, actions: base.actions.slice(0, 1) };
+    }
+    return base;
+  }, [filters, baseLoading, previewState, mode]);
+
+  const runSync = useCallback(async () => {
+    if (mode !== "real" || !filters.iterationId || syncing) return;
+    setSyncing(true);
+    setSyncMessage(null);
+    try {
+      const started = await startSprintWorkItemSync({ data: { teamIterationId: filters.iterationId } });
+      if (!started.ok) {
+        setSyncMessage(started.failure.message);
+        return;
+      }
+      let status = started.status;
+      for (let i = 0; i < MAX_SYNC_ADVANCES && status.cursor.phase !== "done"; i += 1) {
+        const advanced = await advanceSprintWorkItemSync({
+          data: { teamIterationId: filters.iterationId, runId: status.runId },
+        });
+        if (!advanced.ok) {
+          setSyncMessage(advanced.failure.message);
+          return;
+        }
+        status = advanced.status;
+        if (status.status === "failed") {
+          setSyncMessage(status.failure?.message ?? null);
+          return;
+        }
+      }
+      await queryClient.invalidateQueries({ queryKey: ["workspace", "overview"] });
+      setTick((t) => t + 1);
+    } finally {
+      setSyncing(false);
+    }
+  }, [mode, filters.iterationId, syncing, queryClient]);
+
+  const value = useMemo<Ctx>(() => {
+    const realIteration = selectors?.teamIterations.find((it) => it.id === filters.iterationId);
+    return {
+      mode,
+      filters,
+      previewState,
+      setPreviewState,
+      setFilter,
+      snapshot: mode === "real" ? (realOverview?.snapshot ?? null) : mockSnapshot,
+      iteration:
+        mode === "real"
+          ? realIteration
+            ? {
+                id: realIteration.id,
+                teamId: realIteration.teamId,
+                name: { ar: realIteration.nameAr, en: realIteration.nameEn },
+                startDate: realIteration.startDate ?? "",
+                endDate: realIteration.finishDate ?? "",
+                currentDay: realOverview?.sprint.currentWorkingDay ?? 0,
+                totalDays: realOverview?.sprint.totalWorkingDays ?? 0,
+              }
+            : undefined
+          : getIteration(filters.iterationId),
+      loading:
+        mode === "real"
+          ? selectorsQuery.isLoading || overviewQuery.isLoading || !realSelectionReady
+          : previewState === "loading" || baseLoading,
+      error:
+        mode === "real"
+          ? overviewQuery.isError || overviewQuery.data?.ok === false
+          : previewState === "error",
+      refresh: () => setTick((t) => t + 1),
+      unavailable: mode === "real" ? (realOverview?.unavailable ?? {}) : {},
+      syncing,
+      syncMessage,
+      runSync: () => {
+        void runSync();
       },
-    }),
-    [filters, setFilter, snapshot, loading, error, previewState],
-  );
+      options,
+    };
+  }, [
+    mode,
+    filters,
+    previewState,
+    setFilter,
+    realOverview,
+    mockSnapshot,
+    selectors,
+    selectorsQuery.isLoading,
+    overviewQuery.isLoading,
+    overviewQuery.isError,
+    overviewQuery.data,
+    realSelectionReady,
+    baseLoading,
+    syncing,
+    syncMessage,
+    runSync,
+    options,
+  ]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }
