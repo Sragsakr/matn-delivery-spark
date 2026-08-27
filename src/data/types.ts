@@ -61,6 +61,8 @@ export interface KpiMetric {
   drivers: Localized[];
   relatedItems: WorkItemRef[];
   formula: Localized;
+  /** When set, the metric has no trustworthy source: render N/A, never a value or status. */
+  unavailable?: { reasonKey: string };
 }
 
 export interface WorkItemRef {
@@ -118,11 +120,14 @@ export interface TeamMemberLoad {
   id: string;
   name: string;
   role: Localized;
-  capacityHours: number;
-  assignedHours: number;
+  /** Null when Azure capacity is not configured/synchronized — never 0 as a stand-in. */
+  capacityHours: number | null;
+  /** Null when no assigned-effort data exists — the UI then shows item counts. */
+  assignedHours: number | null;
   activeItems: number;
   blockedItems: number;
-  signal: "over" | "balanced" | "under";
+  /** "unknown" whenever there is no positive capacity denominator. */
+  signal: "over" | "balanced" | "under" | "unknown";
 }
 
 export interface EngineeringHealth {
