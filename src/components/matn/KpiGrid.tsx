@@ -207,11 +207,24 @@ export function KpiGrid({ kpis, loading }: { kpis: KpiMetric[]; loading?: boolea
 
               <div className="space-y-6 px-4 pb-8">
                 <div className="flex items-end gap-3">
-                  <span className="text-4xl font-semibold tabular-nums text-foreground">
-                    {formatValue(selected)}
+                  <span
+                    className={cn(
+                      "text-4xl font-semibold tabular-nums",
+                      selected.unavailable ? "text-muted-foreground" : "text-foreground",
+                    )}
+                  >
+                    {selected.unavailable ? t("common.na") : formatValue(selected)}
                   </span>
-                  <StatusPill status={selected.id === "expected" ? "healthy" : selected.status}>
-                    {selected.id === "expected" ? t("status.onTrack") : t(statusKey[selected.status])}
+                  <StatusPill
+                    status={
+                      selected.unavailable ? "neutral" : selected.id === "expected" ? "healthy" : selected.status
+                    }
+                  >
+                    {selected.unavailable
+                      ? t("real.unavailable.title")
+                      : selected.id === "expected"
+                        ? t("status.onTrack")
+                        : t(statusKey[selected.status])}
                   </StatusPill>
                 </div>
 
@@ -219,14 +232,20 @@ export function KpiGrid({ kpis, loading }: { kpis: KpiMetric[]; loading?: boolea
                   <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {t("kpi.whatChanged")}
                   </h3>
-                  <ul className="space-y-2">
-                    {selected.drivers.map((d, i) => (
-                      <li key={i} className="flex gap-2 text-sm text-foreground">
-                        <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-azure" aria-hidden />
-                        <span>{d[locale]}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  {selected.unavailable ? (
+                    <p className="text-sm text-muted-foreground">
+                      {t(selected.unavailable.reasonKey as TKey)}
+                    </p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {selected.drivers.map((d, i) => (
+                        <li key={i} className="flex gap-2 text-sm text-foreground">
+                          <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-azure" aria-hidden />
+                          <span>{d[locale]}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
 
                 <div>
