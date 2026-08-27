@@ -13,10 +13,9 @@ import { AzureDevOpsClient, mapWithConcurrency } from "./client.server";
 import { AzureDevOpsError, toAzureFailure } from "./errors";
 import { emptyCounts, SYNC_DOMAINS, type DomainCounts, type SyncDomain, type SyncRunReport } from "./contracts";
 import type { Database } from "@/integrations/supabase/types";
-import type { AzureIteration, AzureProject, AzureTeam } from "@/types/azure";
+import type { AzureProject, AzureTeam } from "@/types/azure";
+import { dateOnly, iterationPhase, memberKey, templateFromName } from "./sync-rules";
 
-type ProcessTemplateKind = Database["public"]["Enums"]["process_template_kind"];
-type IterationPhase = Database["public"]["Enums"]["iteration_phase"];
 
 const LOCK_TTL_MINUTES = 30;
 const PROJECT_CONCURRENCY = 4;
@@ -139,27 +138,6 @@ async function releaseLock(tenantId: string, runId: string, nowIso: string): Pro
     .eq("run_id", runId)
     .is("released_at", null);
 }
-
-const templateFromName = (name: string | null | undefined): ProcessTemplateKind => {
-  const value = (name ?? "").toLowerCase();
-  if (value.includes("scrum")) return "scrum";
-  if (value.includes("cmmi")) return "cmmi";
-  if (value.includes("basic")) return "basic";
-  if (value.includes("agile")) return "agile";
-  return "custom";
-};
-
-const iterationPhase = (iteration: AzureIteration, now: Date): IterationPhase => {
-  const start = iteration.attributes?.startDate ? new Date(iteration.attributes.startDate) : null;
-  const finish = iteration.attributes?.finishDate ? new Date(iteration.attributes.finishDate) : null;
-  if (!start || !finish) return "undated";
-  if (now < start) return "future";
-  if (now > finish) return "completed";
-  return "current";
-};
-
-const dateOnly = (value: string | null | undefined): string | null =>
-  value ? new Date(value).toISOString().slice(0, 10) : null;
 
 /** Tombstones rows that were not seen during a *complete* pass. */
 async function tombstoneMissing(
@@ -474,7 +452,7 @@ export async function runFoundationSync(input: FoundationSyncInput): Promise<Syn
           const memberIds: string[] = [];
           for (const entry of members) {
             const identity = entry.identity;
-            const descriptor = identity.descriptor ?? identity.id ?? identity.uniqueName;
+            const descriptor = memberKey(identity);
             if (!descriptor) {
               domains.members.failed += 1;
               continue;

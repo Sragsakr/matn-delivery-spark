@@ -49,6 +49,7 @@ const navItems = [
   { to: "/team", key: "nav.team", icon: Users },
   { to: "/engineering", key: "nav.engineering", icon: Cpu },
   { to: "/intelligence", key: "nav.intelligence", icon: Sparkles },
+  { to: "/settings/azure", key: "nav.settings", icon: Settings },
 ] as const;
 
 function BrandMark({ compact }: { compact?: boolean }) {
