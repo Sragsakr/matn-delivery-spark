@@ -34,6 +34,7 @@ describe("foundation domain status invariants", () => {
 
   it("marks failed when no scope succeeded and failures exist", () => {
     expect(domainStatus(counts({ failed: 2 }), { expected: 2, attempted: 2, completed: 0, failed: 2, remainingContinuationTokens: 0 })).toBe("failed");
+  });
 
   it("cannot finalize before every expected scope is attempted", () => {
     expect(domainStatus(counts({ unchanged: 7 }), {
@@ -43,7 +44,6 @@ describe("foundation domain status invariants", () => {
       failed: 0,
       remainingContinuationTokens: 0,
     })).toBe("partial");
-  });
   });
 
   it("marks blocked when a dependency is not complete", () => {

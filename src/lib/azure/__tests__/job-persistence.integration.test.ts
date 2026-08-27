@@ -185,5 +185,5 @@ integration.sequential("Teams persisted finalization", () => {
       .order("azure_team_id");
     expect(secondRows).toEqual(firstRows);
     await cancelFoundationJob(tenantId, second.runId);
-  });
+  }, 30_000);
 });
