@@ -46,7 +46,7 @@ function makeStore(failOn?: string) {
       }
       const patch = diffProject(existing, p);
       if (patch) {
-        updatePayloads.push(patch);
+        updatePayloads.push({ ...patch } as Record<string, unknown>);
         rows.set(p.azureProjectId, { ...existing, ...patch });
         counts.updated += 1;
       } else {

@@ -9,13 +9,15 @@
  * refreshed separately so unchanged rows are never tombstoned.
  */
 
+export type ProcessTemplateKind = "agile" | "basic" | "cmmi" | "custom" | "scrum";
+
 export interface ProjectSourceFields {
   readonly azureProjectId: string;
   readonly name: string;
   readonly description: string | null;
   readonly state: string;
   readonly visibility: string | null;
-  readonly processTemplateKind: string;
+  readonly processTemplateKind: ProcessTemplateKind;
 }
 
 export interface ExistingProjectRow {
@@ -35,10 +37,10 @@ export interface ProjectMutablePayload {
   readonly azure_project_name: string;
   readonly name_en: string;
   readonly description: string | null;
-  readonly process_template_kind: string;
+  readonly process_template_kind: ProcessTemplateKind;
   readonly visibility: string | null;
   readonly state: string;
-  readonly source_status: string;
+  readonly source_status: "active";
   readonly is_deleted: boolean;
 }
 
