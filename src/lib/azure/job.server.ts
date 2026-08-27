@@ -16,6 +16,7 @@ import { AzureDevOpsError, toAzureFailure } from "./errors";
 import { emptyCounts, SYNC_DOMAINS, type DomainCounts, type SyncDomain, type SyncRunReport } from "./contracts";
 import { discoverAzureProjectsBounded } from "./discovery.server";
 import { readProjectTeams } from "./teams.server";
+import { diffProject, mutableProjectPayload } from "./project-upsert";
 import {
   ADVANCE_BUDGET_MS,
   LOCK_TTL_MS,
