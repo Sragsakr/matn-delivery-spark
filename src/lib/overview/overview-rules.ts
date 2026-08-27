@@ -1,0 +1,668 @@
+/**
+ * Deterministic Overview rules.
+ *
+ * Pure functions only: no database, no clock, no Azure. Every number produced
+ * here is traceable to synchronized work items, the sprint calendar, or a
+ * persisted daily snapshot. When a source is missing the rule reports the
+ * metric as unavailable instead of inventing a value.
+ */
+import type { SprintCalendar } from "@/lib/calendar/cairo";
+import type { StateCategory, WorkItemAlias } from "@/types/domain/work-item";
+import type {
+  DeliverySnapshot,
+  FunnelStage,
+  FunnelStageId,
+  HealthStatus,
+  KpiId,
+  KpiMetric,
+  RecommendedAction,
+  Risk,
+  Severity,
+  TeamMemberLoad,
+  TrajectoryPoint,
+  WorkItemRef,
+} from "@/data/types";
+
+/** Minimum weight coverage before a composite confidence score is reported. */
+export const MIN_CONFIDENCE_COVERAGE = 0.6;
+
+export const CONFIDENCE_WEIGHTS = {
+  deliveryTrajectory: 0.4,
+  blockerPressure: 0.25,
+  scopeStability: 0.2,
+  dataCompleteness: 0.15,
+} as const;
+
+/** Blocked longer than this counts as a critical blocker. */
+export const CRITICAL_BLOCKER_AGE_DAYS = 2;
+
+export interface RealWorkItemFact {
+  readonly id: string;
+  readonly azureWorkItemId: number;
+  readonly title: string;
+  readonly alias: WorkItemAlias;
+  readonly azureType: string;
+  readonly state: string;
+  readonly stateCategory: StateCategory;
+  readonly isBlocked: boolean;
+  readonly blockedSince: string | null;
+  readonly estimate: number | null;
+  readonly assignedToMemberId: string | null;
+  readonly countsTowardScope: boolean;
+  readonly stateChangeDate: string | null;
+  readonly changedAtSource: string;
+  readonly azureUrl: string | null;
+}
+
+export interface MemberFact {
+  readonly id: string;
+  readonly displayName: string;
+  readonly capacityHours: number | null;
+}
+
+export interface SnapshotHistoryPoint {
+  readonly snapshotDate: string;
+  readonly workingDay: number;
+  readonly completedPercent: number;
+  readonly scopeTotal: number;
+}
+
+export interface OverviewInput {
+  readonly facts: readonly RealWorkItemFact[];
+  readonly members: readonly MemberFact[];
+  readonly calendar: SprintCalendar | null;
+  readonly history: readonly SnapshotHistoryPoint[];
+  readonly lastSyncedAt: string | null;
+  readonly nowIso: string;
+  readonly iterationId: string;
+}
+
+export type UnavailableReasonCode =
+  | "no_work_items"
+  | "no_sprint_dates"
+  | "no_baseline_snapshot"
+  | "no_estimates"
+  | "not_synchronized";
+
+export interface OverviewResult {
+  readonly snapshot: DeliverySnapshot;
+  /** Metrics/sections with no trustworthy source, keyed by id. */
+  readonly unavailable: Readonly<Record<string, UnavailableReasonCode>>;
+  readonly confidenceCoveragePercent: number;
+}
+
+const clamp = (value: number, min = 0, max = 100): number => Math.min(max, Math.max(min, value));
+const round = (value: number): number => Math.round(value * 10) / 10;
+
+const daysBetween = (fromIso: string | null, toIso: string): number | null => {
+  if (!fromIso) return null;
+  const from = Date.parse(fromIso);
+  const to = Date.parse(toIso);
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
+  return Math.max(0, (to - from) / 86_400_000);
+};
+
+const ACTIVE_CATEGORIES: readonly StateCategory[] = ["proposed", "inProgress", "resolved"];
+
+const REF_TYPE: Record<string, WorkItemRef["type"]> = {
+  bug: "Bug",
+  task: "Task",
+  testCase: "Test Case",
+};
+
+const toRef = (fact: RealWorkItemFact): WorkItemRef => ({
+  id: String(fact.azureWorkItemId),
+  title: { ar: fact.title, en: fact.title },
+  type: REF_TYPE[fact.alias] ?? "User Story",
+  state: { ar: fact.state, en: fact.state },
+});
+
+const statusFromPercent = (value: number, good: number, warn: number): HealthStatus =>
+  value >= good ? "healthy" : value >= warn ? "watch" : value >= warn - 15 ? "atRisk" : "critical";
+
+/** Scope completion: estimate-weighted when estimates exist, else item count. */
+export function computeScopeCompletion(facts: readonly RealWorkItemFact[]): {
+  percent: number | null;
+  basis: "estimate" | "count";
+  total: number;
+  completed: number;
+} {
+  const scoped = facts.filter((f) => f.countsTowardScope);
+  if (scoped.length === 0) return { percent: null, basis: "count", total: 0, completed: 0 };
+
+  const estimated = scoped.filter((f) => typeof f.estimate === "number" && f.estimate > 0);
+  const useEstimates = estimated.length / scoped.length >= 0.6;
+
+  if (useEstimates) {
+    const total = estimated.reduce((sum, f) => sum + (f.estimate ?? 0), 0);
+    const completed = estimated
+      .filter((f) => f.stateCategory === "completed")
+      .reduce((sum, f) => sum + (f.estimate ?? 0), 0);
+    if (total > 0) {
+      return { percent: round((completed / total) * 100), basis: "estimate", total, completed };
+    }
+  }
+
+  const completedCount = scoped.filter((f) => f.stateCategory === "completed").length;
+  return {
+    percent: round((completedCount / scoped.length) * 100),
+    basis: "count",
+    total: scoped.length,
+    completed: completedCount,
+  };
+}
+
+export function computeCriticalBlockers(
+  facts: readonly RealWorkItemFact[],
+  nowIso: string,
+): { count: number; items: RealWorkItemFact[] } {
+  const items = facts.filter((f) => {
+    if (!f.isBlocked || !ACTIVE_CATEGORIES.includes(f.stateCategory)) return false;
+    const age = daysBetween(f.blockedSince ?? f.stateChangeDate, nowIso);
+    return age === null || age >= CRITICAL_BLOCKER_AGE_DAYS;
+  });
+  return { count: items.length, items };
+}
+
+interface ConfidenceComponent {
+  readonly key: keyof typeof CONFIDENCE_WEIGHTS;
+  readonly weight: number;
+  readonly score: number;
+}
+
+export function computeSprintConfidence(input: {
+  scopePercent: number | null;
+  expectedPercent: number | null;
+  baselineScopeTotal: number | null;
+  currentScopeTotal: number;
+  blockedActive: number;
+  activeTotal: number;
+  dataCoverage: number;
+}): { score: number | null; coverage: number; components: readonly ConfidenceComponent[] } {
+  const components: ConfidenceComponent[] = [];
+
+  if (input.scopePercent !== null && input.expectedPercent !== null) {
+    const gap = input.scopePercent - input.expectedPercent;
+    components.push({
+      key: "deliveryTrajectory",
+      weight: CONFIDENCE_WEIGHTS.deliveryTrajectory,
+      score: clamp(100 + gap * 2),
+    });
+  }
+
+  if (input.activeTotal > 0) {
+    const ratio = input.blockedActive / input.activeTotal;
+    components.push({
+      key: "blockerPressure",
+      weight: CONFIDENCE_WEIGHTS.blockerPressure,
+      score: clamp(100 - ratio * 300),
+    });
+  }
+
+  if (input.baselineScopeTotal !== null && input.baselineScopeTotal > 0) {
+    const churn = Math.abs(input.currentScopeTotal - input.baselineScopeTotal) / input.baselineScopeTotal;
+    components.push({
+      key: "scopeStability",
+      weight: CONFIDENCE_WEIGHTS.scopeStability,
+      score: clamp(100 - churn * 300),
+    });
+  }
+
+  components.push({
+    key: "dataCompleteness",
+    weight: CONFIDENCE_WEIGHTS.dataCompleteness,
+    score: clamp(input.dataCoverage * 100),
+  });
+
+  const coverage = components.reduce((sum, c) => sum + c.weight, 0);
+  if (coverage < MIN_CONFIDENCE_COVERAGE) return { score: null, coverage, components };
+
+  const weighted = components.reduce((sum, c) => sum + c.weight * c.score, 0);
+  return { score: Math.round(weighted / coverage), coverage, components };
+}
+
+const FUNNEL_ORDER: readonly FunnelStageId[] = [
+  "backlog",
+  "ready",
+  "development",
+  "review",
+  "testing",
+  "done",
+];
+
+function funnelStageOf(fact: RealWorkItemFact): FunnelStageId {
+  const state = fact.state.toLowerCase();
+  if (state.includes("ready")) return "ready";
+  if (state.includes("test")) return "testing";
+  switch (fact.stateCategory) {
+    case "proposed":
+      return "backlog";
+    case "inProgress":
+      return "development";
+    case "resolved":
+      return "review";
+    case "completed":
+      return "done";
+    default:
+      return "backlog";
+  }
+}
+
+export function computeFunnel(facts: readonly RealWorkItemFact[], nowIso: string): FunnelStage[] {
+  return FUNNEL_ORDER.map((id) => {
+    const stageItems = facts.filter((f) => funnelStageOf(f) === id);
+    const ages = stageItems
+      .map((f) => daysBetween(f.stateChangeDate ?? f.changedAtSource, nowIso))
+      .filter((v): v is number => v !== null);
+    const avgDays = ages.length > 0 ? round(ages.reduce((a, b) => a + b, 0) / ages.length) : 0;
+    const status: HealthStatus =
+      id === "done" ? "healthy" : avgDays >= 5 ? "critical" : avgDays >= 3 ? "atRisk" : "healthy";
+    return { id, count: stageItems.length, avgDays, status };
+  });
+}
+
+export function computeTeamLoad(
+  facts: readonly RealWorkItemFact[],
+  members: readonly MemberFact[],
+): TeamMemberLoad[] {
+  const assigned = new Map<string, RealWorkItemFact[]>();
+  for (const fact of facts) {
+    if (!fact.assignedToMemberId) continue;
+    const list = assigned.get(fact.assignedToMemberId) ?? [];
+    list.push(fact);
+    assigned.set(fact.assignedToMemberId, list);
+  }
+
+  return members
+    .filter((member) => assigned.has(member.id))
+    .map((member) => {
+      const items = assigned.get(member.id) ?? [];
+      const active = items.filter((f) => ACTIVE_CATEGORIES.includes(f.stateCategory));
+      const assignedHours = items.reduce((sum, f) => sum + (f.estimate ?? 0), 0);
+      const capacityHours = member.capacityHours ?? 0;
+      const ratio = capacityHours > 0 ? assignedHours / capacityHours : null;
+      const signal: TeamMemberLoad["signal"] =
+        ratio === null ? "balanced" : ratio > 1.1 ? "over" : ratio < 0.6 ? "under" : "balanced";
+      return {
+        id: member.id,
+        name: member.displayName,
+        role: { ar: "", en: "" },
+        capacityHours,
+        assignedHours: round(assignedHours),
+        activeItems: active.length,
+        blockedItems: active.filter((f) => f.isBlocked).length,
+        signal,
+      };
+    })
+    .sort((a, b) => b.activeItems - a.activeItems);
+}
+
+export function computeRisks(
+  facts: readonly RealWorkItemFact[],
+  calendar: SprintCalendar | null,
+  nowIso: string,
+): Risk[] {
+  const risks: Risk[] = [];
+  const blockers = computeCriticalBlockers(facts, nowIso);
+
+  if (blockers.count > 0) {
+    const oldest = Math.max(
+      ...blockers.items.map((f) => daysBetween(f.blockedSince ?? f.stateChangeDate, nowIso) ?? 0),
+    );
+    risks.push({
+      id: "risk-blocked",
+      severity: blockers.count >= 3 ? "critical" : "high",
+      title: { ar: "عناصر عمل محجوبة", en: "Blocked work items" },
+      explanation: {
+        ar: `${blockers.count} عنصر محجوب حالياً داخل السبرنت.`,
+        en: `${blockers.count} active items are currently blocked.`,
+      },
+      recommendation: {
+        ar: "راجع أسباب الحجب مع مالكي العناصر اليوم.",
+        en: "Review blocking reasons with the item owners today.",
+      },
+      owner: "",
+      ageDays: Math.round(oldest),
+      items: blockers.items.slice(0, 5).map(toRef),
+      adoUrl: blockers.items[0]?.azureUrl ?? "",
+    });
+  }
+
+  const unassigned = facts.filter(
+    (f) => f.countsTowardScope && !f.assignedToMemberId && f.stateCategory !== "completed",
+  );
+  if (unassigned.length > 0) {
+    risks.push({
+      id: "risk-unassigned",
+      severity: unassigned.length >= 5 ? "high" : "medium",
+      title: { ar: "عناصر بدون مسؤول", en: "Unassigned scope" },
+      explanation: {
+        ar: `${unassigned.length} عنصر ضمن النطاق بدون مسؤول محدد.`,
+        en: `${unassigned.length} in-scope items have no assignee.`,
+      },
+      recommendation: {
+        ar: "خصص مسؤولاً لكل عنصر قبل نهاية اليوم.",
+        en: "Assign an owner to each item before end of day.",
+      },
+      owner: "",
+      ageDays: 0,
+      items: unassigned.slice(0, 5).map(toRef),
+      adoUrl: unassigned[0]?.azureUrl ?? "",
+    });
+  }
+
+  const unestimated = facts.filter(
+    (f) => f.countsTowardScope && (f.estimate === null || f.estimate === 0),
+  );
+  if (unestimated.length > 0) {
+    risks.push({
+      id: "risk-unestimated",
+      severity: "watch",
+      title: { ar: "عناصر بدون تقدير", en: "Unestimated scope" },
+      explanation: {
+        ar: `${unestimated.length} عنصر بدون تقدير يقلل دقة التوقع.`,
+        en: `${unestimated.length} items without estimates reduce forecast accuracy.`,
+      },
+      recommendation: {
+        ar: "أضف التقديرات لتحسين موثوقية المؤشرات.",
+        en: "Add estimates to improve indicator reliability.",
+      },
+      owner: "",
+      ageDays: 0,
+      items: unestimated.slice(0, 5).map(toRef),
+      adoUrl: unestimated[0]?.azureUrl ?? "",
+    });
+  }
+
+  if (calendar && calendar.currentWorkingDay >= Math.ceil(calendar.totalWorkingDays / 2)) {
+    const notStarted = facts.filter((f) => f.countsTowardScope && f.stateCategory === "proposed");
+    if (notStarted.length > 0) {
+      risks.push({
+        id: "risk-not-started",
+        severity: notStarted.length >= 5 ? "high" : "medium",
+        title: { ar: "عناصر لم تبدأ بعد", en: "Work not started" },
+        explanation: {
+          ar: `${notStarted.length} عنصر لم يبدأ رغم تجاوز منتصف السبرنت.`,
+          en: `${notStarted.length} items have not started past the sprint midpoint.`,
+        },
+        recommendation: {
+          ar: "أعد ترتيب الأولويات أو قلّص النطاق.",
+          en: "Re-prioritise or reduce sprint scope.",
+        },
+        owner: "",
+        ageDays: calendar.currentWorkingDay,
+        items: notStarted.slice(0, 5).map(toRef),
+        adoUrl: notStarted[0]?.azureUrl ?? "",
+      });
+    }
+  }
+
+  const rank: Record<Severity, number> = { critical: 0, high: 1, medium: 2, watch: 3 };
+  return risks.sort((a, b) => rank[a.severity] - rank[b.severity]);
+}
+
+function actionsFromRisks(risks: readonly Risk[]): RecommendedAction[] {
+  return risks.slice(0, 4).map((risk, index) => ({
+    id: `action-${risk.id}`,
+    priority: index + 1,
+    title: risk.recommendation,
+    impact: risk.title,
+    reason: risk.explanation,
+    items: risk.items,
+  }));
+}
+
+function buildTrajectory(
+  history: readonly SnapshotHistoryPoint[],
+  calendar: SprintCalendar | null,
+  scopePercent: number | null,
+): DeliverySnapshot["trajectory"] {
+  const total = calendar?.totalWorkingDays ?? 0;
+  const current = calendar?.currentWorkingDay ?? 0;
+  const byDay = new Map(history.map((point) => [point.workingDay, point.completedPercent]));
+  if (scopePercent !== null && current > 0) byDay.set(current, scopePercent);
+
+  const points: TrajectoryPoint[] = [];
+  for (let day = 1; day <= total; day += 1) {
+    const actual = day <= current ? (byDay.get(day) ?? null) : null;
+    points.push({
+      day,
+      actual,
+      expected: total > 0 ? Math.round((day / total) * 100) : 0,
+      forecast: null,
+      forecastLow: null,
+      forecastHigh: null,
+    });
+  }
+
+  // Linear forecast from the observed run rate. Reported only with >= 2 real
+  // observations, so a single day never produces a confident projection.
+  const observed = points.filter((p) => p.actual !== null);
+  let forecastCompletion = scopePercent ?? 0;
+  if (observed.length >= 2 && total > 0 && current > 0) {
+    const rate = (scopePercent ?? 0) / current;
+    forecastCompletion = clamp(round(rate * total));
+    for (const point of points) {
+      if (point.day < current) continue;
+      const projected = clamp(round(rate * point.day));
+      Object.assign(point, {
+        forecast: projected,
+        forecastLow: clamp(round(projected * 0.85)),
+        forecastHigh: clamp(round(projected * 1.15)),
+      });
+    }
+  }
+
+  return {
+    points,
+    startDate: calendar?.startDate ?? "",
+    endDate: calendar?.finishDate ?? "",
+    forecastCompletion,
+    forecastRange: [clamp(round(forecastCompletion * 0.85)), clamp(round(forecastCompletion * 1.15))],
+  };
+}
+
+const kpi = (
+  id: KpiId,
+  value: number,
+  unit: KpiMetric["unit"],
+  status: HealthStatus,
+  comparison: number,
+  drivers: KpiMetric["drivers"],
+  formula: KpiMetric["formula"],
+  trend: KpiMetric["trend"] = [],
+  relatedItems: WorkItemRef[] = [],
+): KpiMetric => ({
+  id,
+  labelKey: `kpi.${id}.label`,
+  tooltipKey: `kpi.${id}.tooltip`,
+  explanationKey: `kpi.${id}.explanation`,
+  value,
+  unit,
+  status,
+  comparison: { kind: "target", value: comparison },
+  trend,
+  drivers,
+  relatedItems,
+  formula,
+});
+
+/** Builds the entire real-data Overview payload from synchronized facts. */
+export function buildOverview(input: OverviewInput): OverviewResult {
+  const unavailable: Record<string, UnavailableReasonCode> = {};
+  const { facts, calendar, nowIso } = input;
+
+  if (facts.length === 0) unavailable["workItems"] = "no_work_items";
+  if (!calendar) unavailable["sprintCalendar"] = "no_sprint_dates";
+
+  const scope = computeScopeCompletion(facts);
+  if (scope.percent === null) unavailable["scope"] = "no_work_items";
+
+  const expectedPercent = calendar?.expectedCompletionPercent ?? null;
+  if (expectedPercent === null) unavailable["expected"] = "no_sprint_dates";
+
+  const scoped = facts.filter((f) => f.countsTowardScope);
+  const active = facts.filter((f) => ACTIVE_CATEGORIES.includes(f.stateCategory));
+  const blockers = computeCriticalBlockers(facts, nowIso);
+
+  const baseline = input.history.length > 0 ? input.history[0]! : null;
+  if (!baseline) unavailable["scopeChange"] = "no_baseline_snapshot";
+
+  const coverageParts = scoped.length > 0
+    ? (scoped.filter((f) => f.estimate !== null).length / scoped.length) * 0.5 +
+      (scoped.filter((f) => f.assignedToMemberId !== null).length / scoped.length) * 0.5
+    : 0;
+
+  const confidence = computeSprintConfidence({
+    scopePercent: scope.percent,
+    expectedPercent,
+    baselineScopeTotal: baseline?.scopeTotal ?? null,
+    currentScopeTotal: scope.total,
+    blockedActive: blockers.count,
+    activeTotal: active.length,
+    dataCoverage: coverageParts,
+  });
+  if (confidence.score === null) unavailable["confidence"] = "no_work_items";
+
+  const trendPoints = input.history.map((point) => ({
+    label: String(point.workingDay),
+    value: point.completedPercent,
+  }));
+
+  const kpis: KpiMetric[] = [];
+
+  if (confidence.score !== null) {
+    kpis.push(
+      kpi(
+        "confidence",
+        confidence.score,
+        "percent",
+        statusFromPercent(confidence.score, 75, 55),
+        Math.round(confidence.coverage * 100),
+        [
+          {
+            ar: `تغطية البيانات ${Math.round(confidence.coverage * 100)}%`,
+            en: `Data coverage ${Math.round(confidence.coverage * 100)}%`,
+          },
+        ],
+        {
+          ar: "متوسط مرجّح للمكوّنات المتوفرة فقط",
+          en: "Weighted mean of available components only",
+        },
+        trendPoints,
+      ),
+    );
+  }
+
+  if (scope.percent !== null) {
+    kpis.push(
+      kpi(
+        "scope",
+        scope.percent,
+        "percent",
+        expectedPercent === null
+          ? "neutral"
+          : statusFromPercent(scope.percent - expectedPercent + 100, 100, 90),
+        expectedPercent ?? 0,
+        [
+          scope.basis === "estimate"
+            ? { ar: "محسوب على التقديرات", en: "Estimate-weighted" }
+            : { ar: "محسوب على عدد العناصر", en: "Item-count based" },
+        ],
+        scope.basis === "estimate"
+          ? { ar: "التقديرات المكتملة ÷ إجمالي التقديرات", en: "Completed estimate ÷ total estimate" }
+          : { ar: "العناصر المكتملة ÷ إجمالي العناصر", en: "Completed items ÷ total items" },
+        trendPoints,
+        scoped.slice(0, 5).map(toRef),
+      ),
+    );
+  }
+
+  if (expectedPercent !== null && calendar) {
+    kpis.push(
+      kpi(
+        "expected",
+        expectedPercent,
+        "percent",
+        "neutral",
+        100,
+        [
+          {
+            ar: `اليوم ${calendar.currentWorkingDay} من ${calendar.totalWorkingDays}`,
+            en: `Day ${calendar.currentWorkingDay} of ${calendar.totalWorkingDays}`,
+          },
+        ],
+        { ar: "أيام العمل المنقضية ÷ إجمالي أيام العمل", en: "Elapsed working days ÷ total working days" },
+      ),
+    );
+  }
+
+  if (baseline && baseline.scopeTotal > 0) {
+    const delta = round(((scope.total - baseline.scopeTotal) / baseline.scopeTotal) * 100);
+    kpis.push(
+      kpi(
+        "scopeChange",
+        delta,
+        "delta",
+        Math.abs(delta) <= 5 ? "healthy" : Math.abs(delta) <= 15 ? "watch" : "atRisk",
+        0,
+        [
+          {
+            ar: `خط الأساس ${baseline.snapshotDate}`,
+            en: `Baseline ${baseline.snapshotDate}`,
+          },
+        ],
+        { ar: "(النطاق الحالي − خط الأساس) ÷ خط الأساس", en: "(current scope − baseline) ÷ baseline" },
+      ),
+    );
+  }
+
+  kpis.push(
+    kpi(
+      "blockers",
+      blockers.count,
+      "count",
+      blockers.count === 0 ? "healthy" : blockers.count <= 2 ? "watch" : "critical",
+      0,
+      [
+        {
+          ar: `محجوب ${CRITICAL_BLOCKER_AGE_DAYS} يوم أو أكثر`,
+          en: `Blocked for ${CRITICAL_BLOCKER_AGE_DAYS}+ days`,
+        },
+      ],
+      { ar: "عدد العناصر النشطة المحجوبة", en: "Count of active blocked items" },
+      [],
+      blockers.items.slice(0, 5).map(toRef),
+    ),
+  );
+
+  unavailable["release"] = "not_synchronized";
+  unavailable["engineering"] = "not_synchronized";
+
+  const risks = computeRisks(facts, calendar, nowIso);
+  const lastSyncMinutesAgo = input.lastSyncedAt
+    ? Math.max(0, Math.round((Date.parse(nowIso) - Date.parse(input.lastSyncedAt)) / 60_000))
+    : 0;
+
+  const snapshot: DeliverySnapshot = {
+    iterationId: input.iterationId,
+    lastSyncMinutesAgo,
+    freshness: !input.lastSyncedAt ? "partial" : lastSyncMinutesAgo > 90 ? "stale" : "fresh",
+    kpis,
+    trajectory: buildTrajectory(input.history, calendar, scope.percent),
+    risks,
+    funnel: computeFunnel(facts, nowIso),
+    teamLoad: computeTeamLoad(facts, input.members),
+    engineering: {
+      activePullRequests: 0,
+      stalePullRequests: 0,
+      medianReviewHours: 0,
+      buildSuccessRate: 0,
+      failedTests: 0,
+      deployment: { status: "neutral", labelKey: "eng.deploy.unknown", noteKey: "eng.deploy.notSynced" },
+    },
+    actions: actionsFromRisks(risks),
+  };
+
+  return { snapshot, unavailable, confidenceCoveragePercent: Math.round(confidence.coverage * 100) };
+}
