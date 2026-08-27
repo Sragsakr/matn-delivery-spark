@@ -169,10 +169,30 @@ describe("overview rules", () => {
     expect(result.unavailable["engineering"]).toBe("not_synchronized");
     expect(result.unavailable["release"]).toBe("not_synchronized");
     expect(result.unavailable["scopeChange"]).toBe("no_baseline_snapshot");
-    expect(result.snapshot.kpis.map((k) => k.id)).not.toContain("scopeChange");
+    const scopeChange = result.snapshot.kpis.find((k) => k.id === "scopeChange");
+    expect(scopeChange?.unavailable?.reasonKey).toBe("real.reason.no_baseline_snapshot");
+    expect(result.snapshot.kpis.find((k) => k.id === "release")?.unavailable?.reasonKey).toBe(
+      "real.reason.not_synchronized",
+    );
   });
 
-  it("produces an empty-but-honest overview with no work items", () => {
+  it("withholds scope change while the only baseline was captured today", () => {
+    const result = buildOverview({
+      facts: [fact()],
+      members: [],
+      calendar: sprintCalendar("2026-08-16", "2026-08-29", "2026-08-25"),
+      history: [{ snapshotDate: "2026-08-25", workingDay: 8, completedPercent: 0, scopeTotal: 5 }],
+      lastSyncedAt: "2026-08-25T09:00:00.000Z",
+      nowIso: "2026-08-25T09:10:00.000Z",
+      iterationId: "ti-1",
+    });
+    expect(result.unavailable["scopeChange"]).toBe("baseline_same_day");
+    expect(result.snapshot.kpis.find((k) => k.id === "scopeChange")?.unavailable?.reasonKey).toBe(
+      "real.reason.baseline_same_day",
+    );
+  });
+
+  it("always renders the six primary cards with dictionary-backed keys", () => {
     const result = buildOverview({
       facts: [],
       members: [],
@@ -184,7 +204,33 @@ describe("overview rules", () => {
     });
     expect(result.unavailable["workItems"]).toBe("no_work_items");
     expect(result.unavailable["sprintCalendar"]).toBe("no_sprint_dates");
-    expect(result.snapshot.kpis.map((k) => k.id)).toEqual(["blockers"]);
+    expect(result.snapshot.kpis.map((k) => k.id)).toEqual([
+      "confidence",
+      "scope",
+      "expected",
+      "scopeChange",
+      "blockers",
+      "release",
+    ]);
+    expect(result.snapshot.kpis[0]?.tooltipKey).toBe("kpi.confidence.help");
+    expect(result.snapshot.kpis[1]?.explanationKey).toBe("real.reason.no_work_items");
     expect(result.snapshot.risks).toHaveLength(0);
+  });
+
+  it("reports capacity and effort as unknown rather than zero", () => {
+    const result = buildOverview({
+      facts: [fact({ assignedToMemberId: "m1", estimate: null })],
+      members: [{ id: "m1", displayName: "Sara", capacityHours: null }],
+      calendar: sprintCalendar("2026-08-16", "2026-08-29", "2026-08-25"),
+      history: [],
+      lastSyncedAt: "2026-08-25T00:00:00.000Z",
+      nowIso: "2026-08-25T00:10:00.000Z",
+      iterationId: "ti-1",
+    });
+    const member = result.snapshot.teamLoad[0]!;
+    expect(member.capacityHours).toBeNull();
+    expect(member.assignedHours).toBeNull();
+    expect(member.signal).toBe("unknown");
+    expect(member.activeItems).toBe(1);
   });
 });
