@@ -413,7 +413,6 @@ export const dictionary = {
   "azure.run.partial": { ar: "اكتملت المزامنة جزئيًا.", en: "Synchronization completed partially." },
   "azure.run.failed": { ar: "فشلت المزامنة.", en: "Synchronization failed." },
   "azure.run.skipped": { ar: "تم تخطي المزامنة.", en: "Synchronization skipped." },
-  "azure.error.unknown": { ar: "حدث خطأ غير متوقع.", en: "An unexpected error occurred." },
   "azure.lastRun": { ar: "آخر تشغيل", en: "Last run" },
   "azure.domain": { ar: "النطاق", en: "Domain" },
   "azure.discovered": { ar: "مقروء", en: "Read" },
