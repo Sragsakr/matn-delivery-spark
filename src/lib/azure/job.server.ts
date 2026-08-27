@@ -536,12 +536,7 @@ async function runUnit(
     const projects = await listProjectsFromDb(tenantId, organizationId);
     const project = projects[cursor.index];
     if (!project) {
-      const ok = state.domains.teams.failed === 0 && !state.domains.teams.blocked;
-      bump(state, "teams", {
-        complete: ok,
-        freshnessAt: ok ? (state.domains.teams.freshnessAt ?? nowIso) : null,
-      });
-      if (ok) state.scannedDomains.push("teams");
+      finalizeDomain(state, "teams", nowIso);
       return false;
     }
 
@@ -552,8 +547,11 @@ async function runUnit(
       azureProjectId: project.azure_project_id,
     });
     add(state, "teams", "discovered", read.teamCount);
-    let failedHere = read.status === "failed" ? 1 : 0;
+    let failedHere = 0;
+    // A successful response with zero teams is complete; only an explicit
+    // failure or an unfinished continuation makes this project scope partial.
     if (read.status !== "complete") {
+      failedHere += 1;
       add(state, "teams", "failed");
       state.warnings.push(`teams_${read.status}:${project.azure_project_id}:${read.warning ?? "unknown"}`);
     }
@@ -561,36 +559,66 @@ async function runUnit(
     for (const team of read.teams) {
       const fieldValues = await client.getTeamFieldValues(project.azure_project_id, team.azureTeamId);
       const settings = await client.getTeamSettings(project.azure_project_id, team.azureTeamId);
-      const { data, error } = await supabaseAdmin
+      const source = {
+        azureTeamId: team.azureTeamId,
+        name: team.name,
+        description: team.description,
+        areaPaths: fieldValues ? fieldValues.values.map((v) => v.value) : [],
+        defaultIterationPath: settings?.defaultIteration?.path ?? null,
+      };
+
+      const { data: existing, error: readError } = await supabaseAdmin
         .from("core_teams")
-        .upsert(
-          {
-            tenant_id: tenantId,
-            organization_id: organizationId,
-            project_id: project.id,
-            azure_team_id: team.azureTeamId,
-            azure_team_name: team.name,
-            name_en: team.name,
-            name_ar: team.name,
-            description: team.description,
-            area_paths: fieldValues ? fieldValues.values.map((v) => v.value) : [],
-            default_iteration_path: settings?.defaultIteration?.path ?? null,
-            source_status: "active",
-            is_deleted: false,
-            last_seen_at: nowIso,
-            last_synced_at: nowIso,
-          },
-          { onConflict: "tenant_id,project_id,azure_team_id" },
+        .select(
+          "id, azure_team_name, name_en, description, area_paths, default_iteration_path, source_status, is_deleted",
         )
-        .select("id, created_at")
-        .single();
-      if (error || !data) {
+        .eq("tenant_id", tenantId)
+        .eq("project_id", project.id)
+        .eq("azure_team_id", team.azureTeamId)
+        .maybeSingle();
+      if (readError) {
         failedHere += 1;
         add(state, "teams", "failed");
+        state.warnings.push(`teams_read_failed:${readError.code ?? "unknown"}`);
         continue;
       }
-      if (data.created_at >= state.startedAt) add(state, "teams", "inserted");
-      else add(state, "teams", "updated");
+
+      if (!existing) {
+        const payload = mutableTeamPayload(source);
+        const { error } = await supabaseAdmin.from("core_teams").insert({
+          tenant_id: tenantId,
+          organization_id: organizationId,
+          project_id: project.id,
+          azure_team_id: team.azureTeamId,
+          name_ar: payload.name_en,
+          ...payload,
+          last_seen_at: nowIso,
+          last_synced_at: nowIso,
+        });
+        if (error) {
+          failedHere += 1;
+          add(state, "teams", "failed");
+          state.warnings.push(`teams_insert_failed:${error.code ?? "unknown"}`);
+        } else {
+          add(state, "teams", "inserted");
+        }
+        continue;
+      }
+
+      // Existing UUID is preserved; freshness-only touches count as unchanged.
+      const patch = diffTeam(existing, source);
+      const { error } = await supabaseAdmin
+        .from("core_teams")
+        .update({ ...(patch ?? {}), last_seen_at: nowIso, last_synced_at: nowIso })
+        .eq("tenant_id", tenantId)
+        .eq("id", existing.id);
+      if (error) {
+        failedHere += 1;
+        add(state, "teams", "failed");
+        state.warnings.push(`teams_update_failed:${error.code ?? "unknown"}`);
+      } else {
+        add(state, "teams", patch ? "updated" : "unchanged");
+      }
     }
 
     // Per-project tombstones only after that project's scan fully succeeded.
@@ -599,7 +627,10 @@ async function runUnit(
       add(state, "teams", "missing", missing);
     }
     bump(state, "teams", { freshnessAt: nowIso });
-    return cursor.index + 1 < projects.length;
+    recordScope(state, "teams", failedHere === 0 && read.status === "complete");
+    const moreProjects = cursor.index + 1 < projects.length;
+    if (!moreProjects) finalizeDomain(state, "teams", nowIso);
+    return moreProjects;
   }
 
   if (cursor.domain === "iterations") {
@@ -613,15 +644,11 @@ async function runUnit(
     const teams = await listTeamsFromDb(tenantId, organizationId);
     const team = teams[cursor.index];
     if (!team) {
-      const ok = state.domains.iterations.failed === 0;
-      bump(state, "iterations", { complete: ok, freshnessAt: state.domains.iterations.freshnessAt ?? nowIso });
-      bump(state, "teamIterations", {
-        complete: state.domains.teamIterations.failed === 0,
-        freshnessAt: state.domains.teamIterations.freshnessAt ?? nowIso,
-      });
-      if (ok) state.scannedDomains.push("iterations");
+      finalizeDomain(state, "iterations", nowIso);
+      finalizeDomain(state, "teamIterations", nowIso);
       return false;
     }
+    let scopeOk = true;
     try {
       const iterations = await client.listTeamIterations(team.core_projects.azure_project_id, team.azure_team_id);
       add(state, "iterations", "discovered", iterations.length);
@@ -689,8 +716,16 @@ async function runUnit(
     } catch {
       add(state, "iterations", "failed");
       state.warnings.push(`iterations_incomplete:${team.azure_team_id}`);
+      scopeOk = false;
     }
-    return cursor.index + 1 < teams.length;
+    recordScope(state, "iterations", scopeOk);
+    recordScope(state, "teamIterations", scopeOk);
+    const moreTeams = cursor.index + 1 < teams.length;
+    if (!moreTeams) {
+      finalizeDomain(state, "iterations", nowIso);
+      finalizeDomain(state, "teamIterations", nowIso);
+    }
+    return moreTeams;
   }
 
   if (cursor.domain === "members") {
@@ -704,15 +739,11 @@ async function runUnit(
     const teams = await listTeamsFromDb(tenantId, organizationId);
     const team = teams[cursor.index];
     if (!team) {
-      const ok = state.domains.members.failed === 0;
-      bump(state, "members", { complete: ok, freshnessAt: state.domains.members.freshnessAt ?? nowIso });
-      bump(state, "teamMemberships", {
-        complete: state.domains.teamMemberships.failed === 0,
-        freshnessAt: state.domains.teamMemberships.freshnessAt ?? nowIso,
-      });
-      if (ok) state.scannedDomains.push("members");
+      finalizeDomain(state, "members", nowIso);
+      finalizeDomain(state, "teamMemberships", nowIso);
       return false;
     }
+    let memberScopeOk = true;
     try {
       const members = await client.listTeamMembers(team.core_projects.azure_project_id, team.azure_team_id);
       add(state, "members", "discovered", members.length);
@@ -775,7 +806,7 @@ async function runUnit(
             })
             .eq("tenant_id", tenantId)
             .eq("id", existingId);
-          add(state, "teamMemberships", "updated");
+          add(state, "teamMemberships", "unchanged");
         } else {
           const { error } = await supabaseAdmin.from("core_team_memberships").insert({
             tenant_id: tenantId,
@@ -808,8 +839,16 @@ async function runUnit(
     } catch {
       add(state, "members", "failed");
       state.warnings.push(`members_incomplete:${team.azure_team_id}`);
+      memberScopeOk = false;
     }
-    return cursor.index + 1 < teams.length;
+    recordScope(state, "members", memberScopeOk);
+    recordScope(state, "teamMemberships", memberScopeOk);
+    const moreMemberTeams = cursor.index + 1 < teams.length;
+    if (!moreMemberTeams) {
+      finalizeDomain(state, "members", nowIso);
+      finalizeDomain(state, "teamMemberships", nowIso);
+    }
+    return moreMemberTeams;
   }
 
   return false;
