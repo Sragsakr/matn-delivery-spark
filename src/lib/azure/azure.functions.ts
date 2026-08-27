@@ -7,10 +7,10 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type {
   ConnectionValidationResult,
-  DiscoveredProject,
-  SyncRunReport,
+  ProjectDiscoveryResult,
   SyncStatusResult,
 } from "./contracts";
+import type { JobState } from "./job-rules";
 
 const tenantInput = z.object({ tenantId: z.string().uuid().nullish() }).default({ tenantId: null });
 
@@ -33,15 +33,34 @@ export const validateAzureConnection = createServerFn({ method: "POST" })
 export const discoverAzureProjects = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => tenantInput.parse(data ?? {}))
-  .handler(async ({ context, data }): Promise<{ projects: DiscoveredProject[]; error: SyncRunReport["error"] }> => {
+  .handler(async ({ context, data }): Promise<ProjectDiscoveryResult> => {
     const { discoverProjects } = await import("./operations.server");
     return discoverProjects(context.userId, data.tenantId ?? null);
   });
 
-export const runAzureFoundationSync = createServerFn({ method: "POST" })
+export const startAzureFoundationSync = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => tenantInput.parse(data ?? {}))
-  .handler(async ({ context, data }): Promise<SyncRunReport> => {
+  .handler(async ({ context, data }): Promise<JobState> => {
     const { startFoundationSync } = await import("./operations.server");
     return startFoundationSync(context.userId, data.tenantId ?? null);
+  });
+
+const runInput = z.object({ tenantId: z.string().uuid().nullish(), runId: z.string().uuid() });
+
+export const advanceAzureFoundationSync = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => runInput.parse(data))
+  .handler(async ({ context, data }): Promise<JobState> => {
+    const { advanceFoundationSync } = await import("./operations.server");
+    return advanceFoundationSync(context.userId, data.tenantId ?? null, data.runId);
+  });
+
+export const cancelAzureFoundationSync = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => runInput.parse(data))
+  .handler(async ({ context, data }): Promise<{ cancelled: true }> => {
+    const { cancelFoundationSync } = await import("./operations.server");
+    await cancelFoundationSync(context.userId, data.tenantId ?? null, data.runId);
+    return { cancelled: true };
   });
