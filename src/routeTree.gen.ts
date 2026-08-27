@@ -16,6 +16,7 @@ import { Route as DeliveryRouteImport } from './routes/delivery'
 import { Route as EngineeringRouteImport } from './routes/engineering'
 import { Route as IntelligenceRouteImport } from './routes/intelligence'
 import { Route as TeamRouteImport } from './routes/team'
+import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedSettingsAzureRouteImport } from './routes/_authenticated/settings.azure'
 
 const IndexRoute = IndexRouteImport.update({
@@ -52,6 +53,11 @@ const TeamRoute = TeamRouteImport.update({
   path: '/team',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedOnboardingRoute = AuthenticatedOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedSettingsAzureRoute =
   AuthenticatedSettingsAzureRouteImport.update({
     id: '/settings/azure',
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/engineering': typeof EngineeringRoute
   '/intelligence': typeof IntelligenceRoute
   '/team': typeof TeamRoute
+  '/onboarding': typeof AuthenticatedOnboardingRoute
   '/settings/azure': typeof AuthenticatedSettingsAzureRoute
 }
 export interface FileRoutesByTo {
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/engineering': typeof EngineeringRoute
   '/intelligence': typeof IntelligenceRoute
   '/team': typeof TeamRoute
+  '/onboarding': typeof AuthenticatedOnboardingRoute
   '/settings/azure': typeof AuthenticatedSettingsAzureRoute
 }
 export interface FileRoutesById {
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/engineering': typeof EngineeringRoute
   '/intelligence': typeof IntelligenceRoute
   '/team': typeof TeamRoute
+  '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/settings/azure': typeof AuthenticatedSettingsAzureRoute
 }
 export interface FileRouteTypes {
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/engineering'
     | '/intelligence'
     | '/team'
+    | '/onboarding'
     | '/settings/azure'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/engineering'
     | '/intelligence'
     | '/team'
+    | '/onboarding'
     | '/settings/azure'
   id:
     | '__root__'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/engineering'
     | '/intelligence'
     | '/team'
+    | '/_authenticated/onboarding'
     | '/_authenticated/settings/azure'
   fileRoutesById: FileRoutesById
 }
@@ -180,6 +192,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeamRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/onboarding': {
+      id: '/_authenticated/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof AuthenticatedOnboardingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings/azure': {
       id: '/_authenticated/settings/azure'
       path: '/settings/azure'
@@ -191,10 +210,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedSettingsAzureRoute: typeof AuthenticatedSettingsAzureRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedSettingsAzureRoute: AuthenticatedSettingsAzureRoute,
 }
 

@@ -3582,6 +3582,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      bootstrap_first_tenant_admin: {
+        Args: {
+          p_auth_user_id: string
+          p_display_name: string
+          p_email: string
+          p_tenant_name: string
+          p_tenant_slug: string
+        }
+        Returns: Json
+      }
       can_view_member_detail: {
         Args: { target_team_id: string; target_tenant_id: string }
         Returns: boolean
@@ -3647,6 +3657,7 @@ export type Database = {
         Returns: boolean
       }
       purge_ci_tenant: { Args: { _tenant_id: string }; Returns: number }
+      real_tenant_exists: { Args: never; Returns: boolean }
       remove_demo_tenant: { Args: never; Returns: number }
       seed_demo_tenant: { Args: never; Returns: string }
       write_audit_event: {
