@@ -144,7 +144,7 @@ function KpiCard({ kpi, onOpen, primary }: { kpi: KpiMetric; onOpen: () => void;
       )}
 
       <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">
-        {t(kpi.explanationKey as TKey)}
+        {t(kpi.explanationKey as TKey, kpi.explanationVars)}
       </p>
 
       <span className="mt-auto inline-flex items-center gap-1 pt-0.5 text-xs font-medium text-azure">
@@ -247,6 +247,28 @@ export function KpiGrid({ kpis, loading }: { kpis: KpiMetric[]; loading?: boolea
                     </ul>
                   )}
                 </div>
+
+                {selected.explanationFacts && selected.explanationFacts.coveragePercent !== null ? (
+                  <ul className="space-y-1 text-sm text-muted-foreground">
+                    <li>{t("real.facts.coverage", { a: selected.explanationFacts.coveragePercent })}</li>
+                    <li>
+                      {t("real.facts.included", {
+                        a:
+                          selected.explanationFacts.availableComponents
+                            .map((c) => t(`real.component.${c}` as TKey))
+                            .join(locale === "ar" ? "، " : ", ") || t("real.facts.none"),
+                      })}
+                    </li>
+                    <li>
+                      {t("real.facts.missing", {
+                        a:
+                          selected.explanationFacts.missingComponents
+                            .map((c) => t(`real.component.${c}` as TKey))
+                            .join(locale === "ar" ? "، " : ", ") || t("real.facts.none"),
+                      })}
+                    </li>
+                  </ul>
+                ) : null}
 
                 <div>
                   <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

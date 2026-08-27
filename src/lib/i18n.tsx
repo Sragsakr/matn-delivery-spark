@@ -277,6 +277,60 @@ export const dictionary = {
     en: "Data coverage is below the minimum required for a trustworthy score.",
   },
 
+  // Real-mode KPI explanations. Every sentence is generated from the same
+  // calculation result that produced the displayed value: no static comparisons.
+  "real.explain.confidence.deliveryTrajectory": {
+    ar: "تغطية المكوّنات {a}% عبر {b} مكوّنات. أكبر أثر سلبي: مسار التسليم بدرجة {c}%.",
+    en: "Component coverage {a}% across {b} components. Largest drag: delivery trajectory, scored {c}%.",
+  },
+  "real.explain.confidence.blockerPressure": {
+    ar: "تغطية المكوّنات {a}% عبر {b} مكوّنات. أكبر أثر سلبي: ضغط المعوّقات بدرجة {c}%.",
+    en: "Component coverage {a}% across {b} components. Largest drag: blocker pressure, scored {c}%.",
+  },
+  "real.explain.confidence.scopeStability": {
+    ar: "تغطية المكوّنات {a}% عبر {b} مكوّنات. أكبر أثر سلبي: استقرار النطاق بدرجة {c}%.",
+    en: "Component coverage {a}% across {b} components. Largest drag: scope stability, scored {c}%.",
+  },
+  "real.explain.confidence.dataCompleteness": {
+    ar: "تغطية المكوّنات {a}% عبر {b} مكوّنات. أكبر أثر سلبي: اكتمال البيانات بدرجة {c}%.",
+    en: "Component coverage {a}% across {b} components. Largest drag: data completeness, scored {c}%.",
+  },
+  "real.explain.scope.estimate": {
+    ar: "اليوم {a} من {b}: اكتملت {c} من {d} نقطة تقدير ضمن النطاق. مهام الفانل لا تُحتسب ضمن إنجاز النطاق.",
+    en: "Day {a} of {b}: {c} of {d} estimate points completed in scope. Completed Tasks in the funnel do not count toward scope completion.",
+  },
+  "real.explain.scope.count": {
+    ar: "اليوم {a} من {b}: اكتمل {c} من {d} عنصر ضمن النطاق. مهام الفانل لا تُحتسب ضمن إنجاز النطاق.",
+    en: "Day {a} of {b}: {c} of {d} scoped items completed. Completed Tasks in the funnel do not count toward scope completion.",
+  },
+  "real.explain.expected.final": {
+    ar: "اليوم {a} من {b}: بلغ السبرنت يوم العمل الأخير، لذلك الخط المتوقّع 100%.",
+    en: "Day {a} of {b}: the sprint has reached its final working day, so the expected line is 100%.",
+  },
+  "real.explain.expected.inProgress": {
+    ar: "انقضى {a} من {b} يوم عمل؛ محسوب من تقويم السبرنت فقط.",
+    en: "{a} of {b} working days elapsed; derived from the sprint calendar only.",
+  },
+  "real.explain.blockers.none": {
+    ar: "لا توجد عناصر نشطة موسومة صراحةً كمحجوبة.",
+    en: "No active work items are explicitly mapped as blocked.",
+  },
+  "real.explain.blockers.some": {
+    ar: "{a} عنصر نشط محجوب {b} يوم أو أكثر؛ أقدمها محجوب منذ {c} يوم.",
+    en: "{a} active items blocked for {b}+ days; the oldest has been blocked {c} days.",
+  },
+  "real.explain.release.notSynced": {
+    ar: "لم تُزامن عمليات البناء والاختبارات والنشر، لذلك تعذّر حساب جاهزية الإصدار.",
+    en: "Builds, tests and deployments are not synchronized, so release readiness cannot be computed.",
+  },
+  "real.facts.coverage": { ar: "تغطية المكوّنات {a}%", en: "Component coverage {a}%" },
+  "real.facts.included": { ar: "مكوّنات مُدرجة: {a}", en: "Included components: {a}" },
+  "real.facts.missing": { ar: "مكوّنات ناقصة: {a}", en: "Missing components: {a}" },
+  "real.facts.none": { ar: "لا شيء", en: "None" },
+  "real.component.deliveryTrajectory": { ar: "مسار التسليم", en: "Delivery trajectory" },
+  "real.component.blockerPressure": { ar: "ضغط المعوّقات", en: "Blocker pressure" },
+  "real.component.scopeStability": { ar: "استقرار النطاق", en: "Scope stability" },
+  "real.component.dataCompleteness": { ar: "اكتمال البيانات", en: "Data completeness" },
 
 
   "eng.hours": { ar: "ساعة", en: "h" },
