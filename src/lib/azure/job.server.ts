@@ -152,7 +152,7 @@ const recordScope = (
 ): void => {
   const current = tally(state, domain);
   state.scopes[domain] = {
-    expected,
+    expected: current.expected > 0 ? current.expected : expected,
     attempted: current.attempted + 1,
     completed: current.completed + (completed ? 1 : 0),
     failed: current.failed + (completed ? 0 : 1),
