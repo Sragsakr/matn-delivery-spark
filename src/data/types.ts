@@ -78,9 +78,9 @@ export interface KpiMetric {
   relatedItems: WorkItemRef[];
   formula: Localized;
   /** Interpolation values for `explanationKey`. Real mode always sets these. */
-  explanationVars?: Record<string, string | number>;
+  explanationVars?: Record<string, string | number> | undefined;
   /** Structured facts that generated the explanation (real mode only). */
-  explanationFacts?: KpiExplanationFacts;
+  explanationFacts?: KpiExplanationFacts | undefined;
   /** When set, the metric has no trustworthy source: render N/A, never a value or status. */
   unavailable?: { reasonKey: string };
 }
