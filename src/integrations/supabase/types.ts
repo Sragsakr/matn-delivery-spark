@@ -3623,6 +3623,8 @@ export type Database = {
         Returns: boolean
       }
       is_platform_admin: { Args: never; Returns: boolean }
+      remove_demo_tenant: { Args: never; Returns: undefined }
+      seed_demo_tenant: { Args: never; Returns: string }
       write_audit_event: {
         Args: {
           _action: string
