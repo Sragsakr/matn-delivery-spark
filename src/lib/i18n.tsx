@@ -433,6 +433,11 @@ export const dictionary = {
   "azure.error.partial_sync": { ar: "اكتملت المزامنة جزئيًا.", en: "The synchronization completed partially." },
   "azure.error.conflict": { ar: "توجد مزامنة نشطة بالفعل.", en: "Another run is already active." },
   "azure.error.forbidden": { ar: "غير مصرّح لك بهذه العملية.", en: "You are not authorized for this operation." },
+  "azure.error.missing_configuration": { ar: "لم تُضبط بيانات الاتصال.", en: "The connection is not configured." },
+  "azure.error.invalid_configuration": { ar: "قيمة اسم المؤسسة غير صالحة.", en: "The configured organization value is invalid." },
+  "azure.error.request_timeout": { ar: "انتهت مهلة الطلب.", en: "The request timed out." },
+  "azure.error.network_unreachable": { ar: "تعذّر الوصول إلى Azure DevOps من الخادم.", en: "Azure DevOps could not be reached from the server." },
+  "azure.error.provider_unavailable": { ar: "الخدمة غير متاحة حاليًا.", en: "The service is temporarily unavailable." },
   "azure.error.unknown": { ar: "حدث خطأ غير متوقع.", en: "An unexpected error occurred." },
 } satisfies Dict;
 

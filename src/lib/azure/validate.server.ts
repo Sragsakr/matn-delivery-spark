@@ -6,33 +6,9 @@
  * header are never logged, returned or embedded in a URL.
  */
 import type { AzureErrorCode } from "./errors";
+import type { ValidationDiagnostic, ValidationOutcome, ValidationStage } from "./contracts";
 
-export type ValidationStage =
-  | "configuration"
-  | "dns_or_connect"
-  | "tls"
-  | "azure_response"
-  | "response_parse"
-  | "server_deadline";
-
-export type ValidationOutcome =
-  | "connected"
-  | "missing_configuration"
-  | "invalid_configuration"
-  | "invalid_credentials"
-  | "insufficient_permissions"
-  | "organization_not_found"
-  | "request_timeout"
-  | "network_unreachable"
-  | "provider_unavailable";
-
-export interface ValidationDiagnostic {
-  readonly outcome: ValidationOutcome;
-  readonly stage: ValidationStage;
-  readonly elapsedMs: number;
-  readonly httpStatus: number | null;
-  readonly projectCount: number | null;
-}
+export type { ValidationDiagnostic, ValidationOutcome, ValidationStage };
 
 export const VALIDATION_FETCH_TIMEOUT_MS = 30_000;
 /** Must stay above the fetch timeout so the wrapper never cuts the fetch short. */
