@@ -69,6 +69,7 @@ function ReportTable({ report }: { report: SyncRunReport }) {
             <th scope="col" className="py-2 text-start">{t("azure.discovered")}</th>
             <th scope="col" className="py-2 text-start">{t("azure.inserted")}</th>
             <th scope="col" className="py-2 text-start">{t("azure.updated")}</th>
+            <th scope="col" className="py-2 text-start">{t("azure.unchanged")}</th>
             <th scope="col" className="py-2 text-start">{t("azure.missing")}</th>
             <th scope="col" className="py-2 text-start">{t("azure.failed")}</th>
             <th scope="col" className="py-2 text-start">{t("azure.freshness")}</th>
@@ -99,6 +100,7 @@ function ReportTable({ report }: { report: SyncRunReport }) {
                 <td className="py-2"><Iso>{counts.discovered}</Iso></td>
                 <td className="py-2"><Iso>{counts.inserted}</Iso></td>
                 <td className="py-2"><Iso>{counts.updated}</Iso></td>
+                <td className="py-2"><Iso>{counts.unchanged}</Iso></td>
                 <td className="py-2"><Iso>{counts.missing}</Iso></td>
                 <td className="py-2"><Iso>{counts.failed}</Iso></td>
                 <td className="py-2 text-muted-foreground"><Iso>{fmt(counts.freshnessAt)}</Iso></td>

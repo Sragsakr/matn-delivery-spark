@@ -10,7 +10,7 @@ describe("foundation domain status invariants", () => {
   it("treats seven inserted teams with zero failures across all scopes as complete", () => {
     const result = finalizeScopedDomain(
       counts({ discovered: 7, inserted: 7 }),
-      { attempted: 4, completed: 4 },
+      { expected: 4, attempted: 4, completed: 4, failed: 0, remainingContinuationTokens: 0 },
       "2026-01-01T00:00:00.000Z",
     );
     expect(result.status).toBe("complete");
@@ -19,13 +19,13 @@ describe("foundation domain status invariants", () => {
   });
 
   it("treats a project scope with zero teams and a successful response as complete", () => {
-    expect(domainStatus(counts({}), { attempted: 1, completed: 1 })).toBe("complete");
+    expect(domainStatus(counts({}), { expected: 1, attempted: 1, completed: 1, failed: 0, remainingContinuationTokens: 0 })).toBe("complete");
   });
 
   it("marks partial only when some scope is incomplete or failed", () => {
     const result = finalizeScopedDomain(
       counts({ discovered: 5, inserted: 5 }),
-      { attempted: 4, completed: 3 },
+      { expected: 4, attempted: 4, completed: 3, failed: 1, remainingContinuationTokens: 0 },
       "2026-01-01T00:00:00.000Z",
     );
     expect(result.status).toBe("partial");
@@ -33,7 +33,17 @@ describe("foundation domain status invariants", () => {
   });
 
   it("marks failed when no scope succeeded and failures exist", () => {
-    expect(domainStatus(counts({ failed: 2 }), { attempted: 2, completed: 0 })).toBe("failed");
+    expect(domainStatus(counts({ failed: 2 }), { expected: 2, attempted: 2, completed: 0, failed: 2, remainingContinuationTokens: 0 })).toBe("failed");
+  });
+
+  it("cannot finalize before every expected scope is attempted", () => {
+    expect(domainStatus(counts({ unchanged: 7 }), {
+      expected: 4,
+      attempted: 3,
+      completed: 3,
+      failed: 0,
+      remainingContinuationTokens: 0,
+    })).toBe("partial");
   });
 
   it("marks blocked when a dependency is not complete", () => {
