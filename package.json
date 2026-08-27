@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "db:types": "supabase gen types typescript --linked > src/integrations/supabase/types.ts",
+    "db:test": "for f in supabase/tests/*.sql; do psql -v ON_ERROR_STOP=1 -f \"$f\"; done"
+
   },
   "overrides": {
     "rolldown": "1.2.1"
