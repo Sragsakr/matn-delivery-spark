@@ -346,7 +346,7 @@ export async function cancelFoundationJob(tenantId: string, runId: string): Prom
   const nowIso = new Date().toISOString();
   await supabaseAdmin
     .from("ops_sync_runs")
-    .update({ status: "cancelled", finished_at: nowIso, finalized_at: nowIso })
+    .update({ status: "failed", finished_at: nowIso, finalized_at: nowIso })
     .eq("tenant_id", tenantId)
     .eq("id", runId)
     .in("status", ["queued", "running"]);
