@@ -102,12 +102,31 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [syncFailed, setSyncFailed] = useState(false);
 
 
+  // Protected server functions need a bearer token: never call them during SSR
+  // or while signed out (that throws "No authorization header provided").
+  const [hasSession, setHasSession] = useState(false);
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (active) setHasSession(Boolean(data.session));
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setHasSession(Boolean(session));
+    });
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
   const selectorsQuery = useQuery({
     queryKey: ["workspace", "selectors"],
     queryFn: () => getWorkspaceSelectors(),
+    enabled: hasSession,
     retry: false,
     staleTime: 60_000,
   });
+
 
   const selectors =
     selectorsQuery.data?.ok && selectorsQuery.data.selectors.teamIterations.length > 0
