@@ -63,7 +63,7 @@ BEGIN
   -- 6.6 project-scoped team/iteration references travel with project_id
   SELECT count(*) INTO n
   FROM pg_constraint
-  WHERE conname = 'core_team_iterations_team_project_fkey';
+  WHERE conname = 'core_team_iterations_team_fk';
   IF n <> 1 THEN RAISE EXCEPTION 'TEST FAILED 6.6: composite team FK missing'; END IF;
   RAISE NOTICE 'PASS 6.6 project-composite FKs present';
 
