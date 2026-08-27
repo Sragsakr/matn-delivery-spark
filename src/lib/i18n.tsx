@@ -234,6 +234,49 @@ export const dictionary = {
   },
   "overview.copilot.comingSoon": { ar: "قريبًا", en: "Coming soon" },
 
+  "common.na": { ar: "غير متاح", en: "N/A" },
+  "kpi.unavailable": { ar: "لا يوجد مصدر بيانات موثوق لهذا المؤشر بعد.", en: "No trustworthy source for this indicator yet." },
+  "kpi.coverage": { ar: "تغطية البيانات {a}%", en: "Data coverage {a}%" },
+  "kpi.coverageLow": {
+    ar: "تغطية البيانات أقل من الحد الأدنى، لذلك لا تُعرض درجة الثقة.",
+    en: "Data coverage is below the minimum, so the confidence score is withheld.",
+  },
+  "team.signal.unknown": { ar: "السعة غير معروفة", en: "Capacity unknown" },
+  "team.capacity.unavailable": {
+    ar: "لم تُضبط سعة الفريق في Azure DevOps لهذا السبرنت.",
+    en: "Team capacity is not configured in Azure DevOps for this sprint.",
+  },
+  "team.assigned.items": { ar: "{a} عنصر مُسند", en: "{a} assigned items" },
+  "risks.unassigned": { ar: "بدون مسؤول", en: "Unassigned" },
+  "real.reason.no_work_items": {
+    ar: "لا توجد عناصر عمل مزامنة لهذا السبرنت.",
+    en: "No synchronized work items for this sprint.",
+  },
+  "real.reason.no_sprint_dates": {
+    ar: "لا توجد تواريخ للسبرنت، لذلك لا يمكن حساب هذا المؤشر.",
+    en: "This sprint has no dates, so this indicator cannot be computed.",
+  },
+  "real.reason.no_baseline_snapshot": {
+    ar: "لا توجد لقطة أساس سابقة للمقارنة.",
+    en: "No earlier baseline snapshot exists for comparison.",
+  },
+  "real.reason.baseline_same_day": {
+    ar: "خط الأساس أُنشئ اليوم، لذلك لا يوجد تغيّر نطاق قابل للقياس بعد.",
+    en: "The baseline was captured today, so no scope change is measurable yet.",
+  },
+  "real.reason.no_estimates": {
+    ar: "لا توجد تقديرات كافية لحساب هذا المؤشر.",
+    en: "There are not enough estimates to compute this indicator.",
+  },
+  "real.reason.not_synchronized": {
+    ar: "لم تتم مزامنة مصدر هذا المؤشر بعد.",
+    en: "The source for this indicator is not synchronized yet.",
+  },
+  "real.reason.insufficient_coverage": {
+    ar: "تغطية البيانات أقل من الحد الأدنى المطلوب لحساب موثوق.",
+    en: "Data coverage is below the minimum required for a trustworthy score.",
+  },
+
 
 
   "eng.hours": { ar: "ساعة", en: "h" },

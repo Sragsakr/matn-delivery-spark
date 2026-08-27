@@ -7,19 +7,29 @@ const signalStatus = {
   over: "critical",
   balanced: "healthy",
   under: "neutral",
+  unknown: "neutral",
 } as const;
 
 const signalKey = {
   over: "team.signal.over",
   balanced: "team.signal.balanced",
   under: "team.signal.under",
+  unknown: "team.signal.unknown",
 } as const;
 
-function heatClass(ratio: number) {
+function heatClass(ratio: number | null) {
+  if (ratio === null) return "bg-muted text-muted-foreground";
   if (ratio > 1.1) return "bg-critical/18 text-critical";
   if (ratio > 0.95) return "bg-warning/20 text-warning-foreground dark:text-warning";
   if (ratio >= 0.6) return "bg-success/15 text-success";
   return "bg-muted text-muted-foreground";
+}
+
+/** Utilization only exists with a valid positive capacity denominator. */
+function utilizationRatio(m: TeamMemberLoad): number | null {
+  if (m.capacityHours === null || m.capacityHours <= 0) return null;
+  if (m.assignedHours === null) return null;
+  return m.assignedHours / m.capacityHours;
 }
 
 export function TeamLoadCard({ members }: { members: TeamMemberLoad[] }) {
@@ -47,7 +57,7 @@ export function TeamLoadCard({ members }: { members: TeamMemberLoad[] }) {
           </thead>
           <tbody>
             {members.map((m) => {
-              const ratio = m.assignedHours / Math.max(m.capacityHours, 1);
+              const ratio = utilizationRatio(m);
               return (
                 <tr key={m.id} className="border-b border-border last:border-b-0">
                   <td className="px-5 py-3">
@@ -57,7 +67,11 @@ export function TeamLoadCard({ members }: { members: TeamMemberLoad[] }) {
                     </div>
                   </td>
                   <td className="px-3 py-3 tabular-nums text-muted-foreground">
-                    <Iso>{hours(m.capacityHours)}</Iso>
+                    {m.capacityHours === null ? (
+                      <span title={t("team.capacity.unavailable")}>{t("common.na")}</span>
+                    ) : (
+                      <Iso>{hours(m.capacityHours)}</Iso>
+                    )}
                   </td>
                   <td className="px-3 py-3">
                     <span
@@ -66,7 +80,13 @@ export function TeamLoadCard({ members }: { members: TeamMemberLoad[] }) {
                         heatClass(ratio),
                       )}
                     >
-                      <Iso>{hours(m.assignedHours)}</Iso>
+                      {m.assignedHours === null ? (
+                        <span className="text-xs">
+                          {t("team.assigned.items", { a: m.activeItems })}
+                        </span>
+                      ) : (
+                        <Iso>{hours(m.assignedHours)}</Iso>
+                      )}
                     </span>
                   </td>
                   <td className="px-3 py-3 tabular-nums text-foreground">{m.activeItems}</td>
@@ -81,18 +101,24 @@ export function TeamLoadCard({ members }: { members: TeamMemberLoad[] }) {
                     </span>
                   </td>
                   <td className="px-5 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="h-1.5 w-24 overflow-hidden rounded-full bg-border">
-                        <div
-                          className={cn(
-                            "h-full rounded-full",
-                            ratio > 1.1 ? "bg-critical" : ratio > 0.95 ? "bg-warning" : "bg-success",
-                          )}
-                          style={{ width: `${Math.min(100, ratio * 100)}%` }}
-                        />
+                    {ratio === null ? (
+                      <span className="text-xs text-muted-foreground">
+                        {t("common.na")} — {t("team.capacity.unavailable")}
+                      </span>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-24 overflow-hidden rounded-full bg-border">
+                          <div
+                            className={cn(
+                              "h-full rounded-full",
+                              ratio > 1.1 ? "bg-critical" : ratio > 0.95 ? "bg-warning" : "bg-success",
+                            )}
+                            style={{ width: `${Math.min(100, ratio * 100)}%` }}
+                          />
+                        </div>
+                        <StatusPill status={signalStatus[m.signal]}>{t(signalKey[m.signal])}</StatusPill>
                       </div>
-                      <StatusPill status={signalStatus[m.signal]}>{t(signalKey[m.signal])}</StatusPill>
-                    </div>
+                    )}
                   </td>
                 </tr>
               );
@@ -104,7 +130,7 @@ export function TeamLoadCard({ members }: { members: TeamMemberLoad[] }) {
       {/* Mobile cards */}
       <ul className={cn("divide-y divide-border md:hidden", members.length === 0 && "hidden")}>
         {members.map((m) => {
-          const ratio = m.assignedHours / Math.max(m.capacityHours, 1);
+          const ratio = utilizationRatio(m);
           return (
             <li key={m.id} className="p-4">
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
@@ -118,13 +144,17 @@ export function TeamLoadCard({ members }: { members: TeamMemberLoad[] }) {
                 <div className="rounded-md border border-border bg-surface px-2.5 py-1.5">
                   <div className="text-muted-foreground">{t("team.capacity")}</div>
                   <div className="tabular-nums text-foreground">
-                    <Iso>{hours(m.capacityHours)}</Iso>
+                    {m.capacityHours === null ? t("common.na") : <Iso>{hours(m.capacityHours)}</Iso>}
                   </div>
                 </div>
                 <div className={cn("rounded-md px-2.5 py-1.5", heatClass(ratio))}>
                   <div className="opacity-80">{t("team.assigned")}</div>
                   <div className="tabular-nums">
-                    <Iso>{hours(m.assignedHours)}</Iso>
+                    {m.assignedHours === null ? (
+                      t("team.assigned.items", { a: m.activeItems })
+                    ) : (
+                      <Iso>{hours(m.assignedHours)}</Iso>
+                    )}
                   </div>
                 </div>
                 <div className="rounded-md border border-border bg-surface px-2.5 py-1.5">

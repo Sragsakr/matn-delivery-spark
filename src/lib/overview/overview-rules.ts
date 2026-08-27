@@ -6,7 +6,7 @@
  * persisted daily snapshot. When a source is missing the rule reports the
  * metric as unavailable instead of inventing a value.
  */
-import type { SprintCalendar } from "@/lib/calendar/cairo";
+import { cairoToday, type SprintCalendar } from "@/lib/calendar/cairo";
 import type { StateCategory, WorkItemAlias } from "@/types/domain/work-item";
 import type {
   DeliverySnapshot,
@@ -81,7 +81,9 @@ export type UnavailableReasonCode =
   | "no_work_items"
   | "no_sprint_dates"
   | "no_baseline_snapshot"
+  | "baseline_same_day"
   | "no_estimates"
+  | "insufficient_coverage"
   | "not_synchronized";
 
 export interface OverviewResult {
@@ -278,17 +280,24 @@ export function computeTeamLoad(
     .map((member) => {
       const items = assigned.get(member.id) ?? [];
       const active = items.filter((f) => ACTIVE_CATEGORIES.includes(f.stateCategory));
-      const assignedHours = items.reduce((sum, f) => sum + (f.estimate ?? 0), 0);
-      const capacityHours = member.capacityHours ?? 0;
-      const ratio = capacityHours > 0 ? assignedHours / capacityHours : null;
+      // Effort is only reportable when at least one assigned item carries an estimate.
+      const estimated = items.filter((f) => typeof f.estimate === "number" && f.estimate > 0);
+      const assignedHours =
+        estimated.length > 0 ? round(estimated.reduce((sum, f) => sum + (f.estimate ?? 0), 0)) : null;
+      const capacityHours =
+        typeof member.capacityHours === "number" && member.capacityHours > 0
+          ? member.capacityHours
+          : null;
+      const ratio =
+        capacityHours !== null && assignedHours !== null ? assignedHours / capacityHours : null;
       const signal: TeamMemberLoad["signal"] =
-        ratio === null ? "balanced" : ratio > 1.1 ? "over" : ratio < 0.6 ? "under" : "balanced";
+        ratio === null ? "unknown" : ratio > 1.1 ? "over" : ratio < 0.6 ? "under" : "balanced";
       return {
         id: member.id,
         name: member.displayName,
         role: { ar: "", en: "" },
         capacityHours,
-        assignedHours: round(assignedHours),
+        assignedHours,
         activeItems: active.length,
         blockedItems: active.filter((f) => f.isBlocked).length,
         signal,
@@ -474,9 +483,10 @@ const kpi = (
   relatedItems: WorkItemRef[] = [],
 ): KpiMetric => ({
   id,
-  labelKey: `kpi.${id}.label`,
-  tooltipKey: `kpi.${id}.tooltip`,
-  explanationKey: `kpi.${id}.explanation`,
+  // The dictionary uses the metric id as the label key, with `.help`/`.explain` suffixes.
+  labelKey: `kpi.${id}`,
+  tooltipKey: `kpi.${id}.help`,
+  explanationKey: `kpi.${id}.explain`,
   value,
   unit,
   status,
@@ -485,6 +495,27 @@ const kpi = (
   drivers,
   relatedItems,
   formula,
+});
+
+/** A KPI card that must still be shown, but carries no value — only a reason. */
+const unavailableKpi = (
+  id: KpiId,
+  unit: KpiMetric["unit"],
+  reason: UnavailableReasonCode,
+): KpiMetric => ({
+  id,
+  labelKey: `kpi.${id}`,
+  tooltipKey: `kpi.${id}.help`,
+  explanationKey: `real.reason.${reason}`,
+  value: 0,
+  unit,
+  status: "neutral",
+  comparison: { kind: "target", value: 0 },
+  trend: [],
+  drivers: [],
+  relatedItems: [],
+  formula: { ar: "—", en: "—" },
+  unavailable: { reasonKey: `real.reason.${reason}` },
 });
 
 /** Builds the entire real-data Overview payload from synchronized facts. */
@@ -505,8 +536,21 @@ export function buildOverview(input: OverviewInput): OverviewResult {
   const active = facts.filter((f) => ACTIVE_CATEGORIES.includes(f.stateCategory));
   const blockers = computeCriticalBlockers(facts, nowIso);
 
-  const baseline = input.history.length > 0 ? input.history[0]! : null;
-  if (!baseline) unavailable["scopeChange"] = "no_baseline_snapshot";
+  // Scope change needs a baseline captured on an earlier day than today. On the
+  // first synchronized day the baseline is the current state, so any delta would
+  // be 0% by construction rather than by measurement.
+  const today = cairoToday(new Date(Date.parse(nowIso)));
+  const firstSnapshot = input.history.length > 0 ? input.history[0]! : null;
+  const baseline =
+    firstSnapshot && firstSnapshot.snapshotDate < today && firstSnapshot.scopeTotal > 0
+      ? firstSnapshot
+      : null;
+  const scopeChangeReason: UnavailableReasonCode | null = baseline
+    ? null
+    : firstSnapshot
+      ? "baseline_same_day"
+      : "no_baseline_snapshot";
+  if (scopeChangeReason) unavailable["scopeChange"] = scopeChangeReason;
 
   const coverageParts = scoped.length > 0
     ? (scoped.filter((f) => f.estimate !== null).length / scoped.length) * 0.5 +
@@ -522,82 +566,92 @@ export function buildOverview(input: OverviewInput): OverviewResult {
     activeTotal: active.length,
     dataCoverage: coverageParts,
   });
-  if (confidence.score === null) unavailable["confidence"] = "no_work_items";
+  const confidenceReason: UnavailableReasonCode | null =
+    confidence.score !== null ? null : facts.length === 0 ? "no_work_items" : "insufficient_coverage";
+  if (confidenceReason) unavailable["confidence"] = confidenceReason;
 
   const trendPoints = input.history.map((point) => ({
     label: String(point.workingDay),
     value: point.completedPercent,
   }));
 
+  // All six primary cards are always rendered, in display order. A card with no
+  // trustworthy source reports N/A and its reason instead of disappearing.
   const kpis: KpiMetric[] = [];
 
-  if (confidence.score !== null) {
-    kpis.push(
-      kpi(
-        "confidence",
-        confidence.score,
-        "percent",
-        statusFromPercent(confidence.score, 75, 55),
-        Math.round(confidence.coverage * 100),
-        [
+  kpis.push(
+    confidence.score !== null
+      ? kpi(
+          "confidence",
+          confidence.score,
+          "percent",
+          statusFromPercent(confidence.score, 75, 55),
+          Math.round(confidence.coverage * 100),
+          [
+            {
+              ar: `تغطية البيانات ${Math.round(confidence.coverage * 100)}%`,
+              en: `Data coverage ${Math.round(confidence.coverage * 100)}%`,
+            },
+          ],
           {
-            ar: `تغطية البيانات ${Math.round(confidence.coverage * 100)}%`,
-            en: `Data coverage ${Math.round(confidence.coverage * 100)}%`,
+            ar: "متوسط مرجّح للمكوّنات المتوفرة فقط",
+            en: "Weighted mean of available components only",
           },
-        ],
-        {
-          ar: "متوسط مرجّح للمكوّنات المتوفرة فقط",
-          en: "Weighted mean of available components only",
-        },
-        trendPoints,
-      ),
-    );
-  }
+          trendPoints,
+        )
+      : unavailableKpi("confidence", "percent", confidenceReason ?? "insufficient_coverage"),
+  );
 
-  if (scope.percent !== null) {
-    kpis.push(
-      kpi(
-        "scope",
-        scope.percent,
-        "percent",
-        expectedPercent === null
-          ? "neutral"
-          : statusFromPercent(scope.percent - expectedPercent + 100, 100, 90),
-        expectedPercent ?? 0,
-        [
+  kpis.push(
+    scope.percent !== null
+      ? kpi(
+          "scope",
+          scope.percent,
+          "percent",
+          expectedPercent === null
+            ? "neutral"
+            : statusFromPercent(scope.percent - expectedPercent + 100, 100, 90),
+          expectedPercent ?? 0,
+          [
+            scope.basis === "estimate"
+              ? {
+                  ar: `محسوب على التقديرات · ${scope.completed} من ${scope.total} نقطة`,
+                  en: `Estimate-weighted · ${scope.completed} of ${scope.total} points`,
+                }
+              : {
+                  ar: `محسوب على عدد العناصر · ${scope.completed} من ${scope.total} عنصر`,
+                  en: `Item-count based · ${scope.completed} of ${scope.total} items`,
+                },
+          ],
           scope.basis === "estimate"
-            ? { ar: "محسوب على التقديرات", en: "Estimate-weighted" }
-            : { ar: "محسوب على عدد العناصر", en: "Item-count based" },
-        ],
-        scope.basis === "estimate"
-          ? { ar: "التقديرات المكتملة ÷ إجمالي التقديرات", en: "Completed estimate ÷ total estimate" }
-          : { ar: "العناصر المكتملة ÷ إجمالي العناصر", en: "Completed items ÷ total items" },
-        trendPoints,
-        scoped.slice(0, 5).map(toRef),
-      ),
-    );
-  }
+            ? { ar: "التقديرات المكتملة ÷ إجمالي التقديرات", en: "Completed estimate ÷ total estimate" }
+            : { ar: "العناصر المكتملة ÷ إجمالي العناصر", en: "Completed items ÷ total items" },
+          trendPoints,
+          scoped.slice(0, 5).map(toRef),
+        )
+      : unavailableKpi("scope", "percent", "no_work_items"),
+  );
 
-  if (expectedPercent !== null && calendar) {
-    kpis.push(
-      kpi(
-        "expected",
-        expectedPercent,
-        "percent",
-        "neutral",
-        100,
-        [
-          {
-            ar: `اليوم ${calendar.currentWorkingDay} من ${calendar.totalWorkingDays}`,
-            en: `Day ${calendar.currentWorkingDay} of ${calendar.totalWorkingDays}`,
-          },
-        ],
-        { ar: "أيام العمل المنقضية ÷ إجمالي أيام العمل", en: "Elapsed working days ÷ total working days" },
-      ),
-    );
-  }
+  kpis.push(
+    expectedPercent !== null && calendar
+      ? kpi(
+          "expected",
+          expectedPercent,
+          "percent",
+          "neutral",
+          100,
+          [
+            {
+              ar: `اليوم ${calendar.currentWorkingDay} من ${calendar.totalWorkingDays}`,
+              en: `Day ${calendar.currentWorkingDay} of ${calendar.totalWorkingDays}`,
+            },
+          ],
+          { ar: "أيام العمل المنقضية ÷ إجمالي أيام العمل", en: "Elapsed working days ÷ total working days" },
+        )
+      : unavailableKpi("expected", "percent", "no_sprint_dates"),
+  );
 
-  if (baseline && baseline.scopeTotal > 0) {
+  if (baseline) {
     const delta = round(((scope.total - baseline.scopeTotal) / baseline.scopeTotal) * 100);
     kpis.push(
       kpi(
@@ -615,6 +669,8 @@ export function buildOverview(input: OverviewInput): OverviewResult {
         { ar: "(النطاق الحالي − خط الأساس) ÷ خط الأساس", en: "(current scope − baseline) ÷ baseline" },
       ),
     );
+  } else {
+    kpis.push(unavailableKpi("scopeChange", "delta", scopeChangeReason ?? "no_baseline_snapshot"));
   }
 
   kpis.push(
@@ -635,6 +691,10 @@ export function buildOverview(input: OverviewInput): OverviewResult {
       blockers.items.slice(0, 5).map(toRef),
     ),
   );
+
+  // Release readiness depends on builds, tests and deployments — none of which
+  // are synchronized in this phase, so it stays explicitly unavailable.
+  kpis.push(unavailableKpi("release", "percent", "not_synchronized"));
 
   unavailable["release"] = "not_synchronized";
   unavailable["engineering"] = "not_synchronized";
