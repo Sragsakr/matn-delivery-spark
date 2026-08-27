@@ -3,6 +3,34 @@ import type { AzureFailure } from "./errors";
 
 export type ConnectionStatus = "unconfigured" | "pending" | "connected" | "error" | "disabled";
 
+export type ValidationStage =
+  | "configuration"
+  | "dns_or_connect"
+  | "tls"
+  | "azure_response"
+  | "response_parse"
+  | "server_deadline";
+
+export type ValidationOutcome =
+  | "connected"
+  | "missing_configuration"
+  | "invalid_configuration"
+  | "invalid_credentials"
+  | "insufficient_permissions"
+  | "organization_not_found"
+  | "request_timeout"
+  | "network_unreachable"
+  | "provider_unavailable";
+
+/** Sanitized: no provider bodies, headers, secrets, stacks or credentialed URLs. */
+export interface ValidationDiagnostic {
+  readonly outcome: ValidationOutcome;
+  readonly stage: ValidationStage;
+  readonly elapsedMs: number;
+  readonly httpStatus: number | null;
+  readonly projectCount: number | null;
+}
+
 export interface ConnectionValidationResult {
   readonly connected: boolean;
   readonly status: ConnectionStatus;
@@ -10,6 +38,7 @@ export interface ConnectionValidationResult {
   readonly accessibleProjectCount: number | null;
   readonly checkedAt: string;
   readonly error: AzureFailure | null;
+  readonly diagnostic: ValidationDiagnostic | null;
 }
 
 export interface DiscoveredProject {
