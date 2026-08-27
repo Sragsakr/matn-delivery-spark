@@ -70,7 +70,7 @@ export async function readSyncStatus(authUserId: string, tenantId: string | null
     connectionStatus: (connection?.status ?? (configured ? "pending" : "unconfigured")) as ConnectionStatus,
     lastVerifiedAt: connection?.last_verified_at ?? null,
     statusMessage: connection?.status_message ?? null,
-    activeRun: activeLock ? { runId: activeLock.run_id, startedAt: activeLock.acquired_at ?? null } : null,
+    activeRun: activeLock?.run_id ? { runId: activeLock.run_id, startedAt: activeLock.acquired_at ?? null } : null,
     lastRun: report && typeof report === "object" && "runId" in report ? report : null,
     freshness,
     canValidate: canRunSync(ctx) && configured,
