@@ -98,6 +98,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [previewState, setPreviewState] = useState<PreviewState>("normal");
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [syncReport, setSyncReport] = useState<WorkItemSyncReport | null>(null);
+  const [syncFailed, setSyncFailed] = useState(false);
+
 
   const selectorsQuery = useQuery({
     queryKey: ["workspace", "selectors"],
