@@ -1,6 +1,13 @@
 /** Server-only implementations behind the Azure DevOps server functions. */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { AzureDevOpsClient, hasAzureSecrets } from "./client.server";
+import {
+  OUTCOME_TO_CODE,
+  VALIDATION_DEADLINE_MS,
+  normalizeOrganization,
+  validateAzureOrganization,
+  type ValidationDiagnostic,
+} from "./validate.server";
 import { AzureDevOpsError, toAzureFailure } from "./errors";
 import {
   assertCanReadSyncStatus,
@@ -20,7 +27,7 @@ import type {
   SyncStatusResult,
 } from "./contracts";
 
-const organizationName = (): string | null => process.env["AZURE_DEVOPS_ORGANIZATION"]?.trim() || null;
+const organizationName = (): string | null => normalizeOrganization(process.env["AZURE_DEVOPS_ORGANIZATION"]);
 
 async function context(authUserId: string, tenantId: string | null): Promise<TenantContext> {
   return resolveTenantContext(authUserId, tenantId);
@@ -88,13 +95,16 @@ export async function validateConnection(
   const org = organizationName();
 
   if (!hasAzureSecrets() || !org) {
+    const code = org === null && process.env["AZURE_DEVOPS_ORGANIZATION"]?.trim()
+      ? "invalid_configuration"
+      : "missing_configuration";
     await writeAudit({
       tenantId: ctx.tenantId,
       actorUserId: ctx.coreUserId,
       action: "azure.connection.validate",
       entityType: "sync_connection",
       outcome: "failure",
-      metadata: { code: "not_configured" },
+      metadata: { code },
     });
     return {
       connected: false,
@@ -102,62 +112,82 @@ export async function validateConnection(
       organization: null,
       accessibleProjectCount: null,
       checkedAt,
-      error: new AzureDevOpsError("not_configured").toFailure(),
+      error: new AzureDevOpsError(code).toFailure(),
+      diagnostic: {
+        outcome: code === "invalid_configuration" ? "invalid_configuration" : "missing_configuration",
+        stage: "configuration",
+        elapsedMs: 0,
+        httpStatus: null,
+        projectCount: null,
+      },
     };
   }
 
   const organizationId = await ensureOrganization(ctx.tenantId, org, checkedAt);
   const connectionId = await ensureConnection(ctx.tenantId, organizationId);
 
-  try {
-    const projects = await AzureDevOpsClient.fromEnvironment().listProjects();
-    await supabaseAdmin
-      .from("ops_sync_connections")
-      .update({ status: "connected", status_message: null, last_verified_at: checkedAt })
-      .eq("tenant_id", ctx.tenantId)
-      .eq("id", connectionId);
-    await writeAudit({
-      tenantId: ctx.tenantId,
-      actorUserId: ctx.coreUserId,
-      action: "azure.connection.validate",
-      entityType: "sync_connection",
-      entityId: connectionId,
-      outcome: "success",
-      metadata: { projectCount: projects.length },
-    });
-    return {
-      connected: true,
-      status: "connected",
+  const startedAt = Date.now();
+  // The outer deadline is strictly longer than the fetch timeout, so the
+  // wrapper can never terminate before the request itself times out.
+  const deadline = new Promise<ValidationDiagnostic>((resolve) =>
+    setTimeout(
+      () =>
+        resolve({
+          outcome: "request_timeout",
+          stage: "server_deadline",
+          elapsedMs: Date.now() - startedAt,
+          httpStatus: null,
+          projectCount: null,
+        }),
+      VALIDATION_DEADLINE_MS,
+    ),
+  );
+
+  const diagnostic = await Promise.race([
+    validateAzureOrganization({
       organization: org,
-      accessibleProjectCount: projects.length,
-      checkedAt,
-      error: null,
-    };
-  } catch (error) {
-    const failure = toAzureFailure(error);
-    await supabaseAdmin
-      .from("ops_sync_connections")
-      .update({ status: "error", status_message: failure.code, last_verified_at: checkedAt })
-      .eq("tenant_id", ctx.tenantId)
-      .eq("id", connectionId);
-    await writeAudit({
-      tenantId: ctx.tenantId,
-      actorUserId: ctx.coreUserId,
-      action: "azure.connection.validate",
-      entityType: "sync_connection",
-      entityId: connectionId,
-      outcome: "failure",
-      metadata: { code: failure.code },
-    });
-    return {
-      connected: false,
-      status: "error",
-      organization: org,
-      accessibleProjectCount: null,
-      checkedAt,
-      error: failure,
-    };
-  }
+      pat: process.env["AZURE_DEVOPS_PAT"] ?? null,
+    }),
+    deadline,
+  ]);
+
+  const connected = diagnostic.outcome === "connected";
+  const code = OUTCOME_TO_CODE[diagnostic.outcome];
+
+  await supabaseAdmin
+    .from("ops_sync_connections")
+    .update({
+      status: connected ? "connected" : "error",
+      status_message: connected ? null : (code ?? "unknown"),
+      last_verified_at: checkedAt,
+    })
+    .eq("tenant_id", ctx.tenantId)
+    .eq("id", connectionId);
+
+  await writeAudit({
+    tenantId: ctx.tenantId,
+    actorUserId: ctx.coreUserId,
+    action: "azure.connection.validate",
+    entityType: "sync_connection",
+    entityId: connectionId,
+    outcome: connected ? "success" : "failure",
+    metadata: {
+      outcome: diagnostic.outcome,
+      stage: diagnostic.stage,
+      elapsedMs: diagnostic.elapsedMs,
+      httpStatus: diagnostic.httpStatus,
+    },
+  });
+
+  return {
+    connected,
+    status: connected ? "connected" : "error",
+    organization: org,
+    accessibleProjectCount: diagnostic.projectCount,
+    checkedAt,
+    error: code ? new AzureDevOpsError(code, { httpStatus: diagnostic.httpStatus }).toFailure() : null,
+    diagnostic,
+  };
 }
 
 export async function discoverProjects(
